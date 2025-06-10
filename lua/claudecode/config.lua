@@ -15,6 +15,20 @@ M.defaults = {
     vertical_split = true,
     open_in_current_tab = true, -- Use current tab instead of creating new tab
   },
+  notifications = {
+    enabled = true,
+    on_completion = true,
+    on_confirmation = true,
+    on_error = true,
+    title = "Claude Code",
+    sound = true,
+    sound_file = "/System/Library/Sounds/Ping.aiff",
+    messages = {
+      completion = "任務完成",
+      confirmation = "需要確認",
+      error = "出現錯誤",
+    },
+  },
 }
 
 --- Validates the provided configuration table.
@@ -58,6 +72,16 @@ function M.validate(config)
   assert(type(config.diff_opts.show_diff_stats) == "boolean", "diff_opts.show_diff_stats must be a boolean")
   assert(type(config.diff_opts.vertical_split) == "boolean", "diff_opts.vertical_split must be a boolean")
   assert(type(config.diff_opts.open_in_current_tab) == "boolean", "diff_opts.open_in_current_tab must be a boolean")
+
+  assert(type(config.notifications) == "table", "notifications must be a table")
+  assert(type(config.notifications.enabled) == "boolean", "notifications.enabled must be a boolean")
+  assert(type(config.notifications.on_completion) == "boolean", "notifications.on_completion must be a boolean")
+  assert(type(config.notifications.on_confirmation) == "boolean", "notifications.on_confirmation must be a boolean")
+  assert(type(config.notifications.on_error) == "boolean", "notifications.on_error must be a boolean")
+  assert(type(config.notifications.title) == "string", "notifications.title must be a string")
+  assert(type(config.notifications.sound) == "boolean", "notifications.sound must be a boolean")
+  assert(type(config.notifications.sound_file) == "string", "notifications.sound_file must be a string")
+  assert(type(config.notifications.messages) == "table", "notifications.messages must be a table")
 
   return true
 end

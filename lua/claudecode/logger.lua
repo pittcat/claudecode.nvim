@@ -70,6 +70,9 @@ local function log(level, component, message_parts)
 
   if level == M.levels.ERROR then
     vim.notify(prefix .. " " .. message, vim.log.levels.ERROR, { title = "ClaudeCode Error" })
+    -- Send system notification for errors
+    local notifications = require("claudecode.notifications")
+    notifications.error(message)
   elseif level == M.levels.WARN then
     vim.notify(prefix .. " " .. message, vim.log.levels.WARN, { title = "ClaudeCode Warning" })
   else

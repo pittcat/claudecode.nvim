@@ -278,6 +278,10 @@ function M._open_native_diff(old_file_path, new_file_path, new_file_contents, ta
     once = true,
   })
 
+  -- Send notification that diff is ready for review
+  local notifications = require("claudecode.notifications")
+  notifications.confirmation()
+
   return {
     provider = "native",
     tab_name = tab_name,
@@ -367,6 +371,10 @@ function M._resolve_diff_as_saved(tab_name, buffer_id)
 
   diff_data.status = "saved"
   diff_data.result_content = result
+
+  -- Send completion notification for accepted diff
+  local notifications = require("claudecode.notifications")
+  notifications.completion()
 
   -- Resume the coroutine with the result (for deferred response system)
   if diff_data.resolution_callback then
@@ -981,6 +989,10 @@ function M.open_diff_blocking(old_file_path, new_file_path, new_file_contents, t
   end
 
   logger.debug("diff", "Diff setup completed successfully for", tab_name, "- about to yield and wait for user action")
+
+  -- Send immediate notification before blocking
+  local notifications = require("claudecode.notifications")
+  notifications.confirmation()
 
   -- Yield and wait indefinitely for user interaction - the resolve functions will resume us
   logger.debug("diff", "About to yield and wait for user action")

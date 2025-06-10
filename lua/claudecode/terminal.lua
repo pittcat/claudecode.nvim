@@ -195,9 +195,17 @@ local function open_fallback_terminal(cmd_string, env_table, effective_term_conf
 
   managed_fallback_terminal_jobid = vim.fn.termopen(term_cmd_arg, {
     env = env_table,
-    on_exit = function(job_id, _, _)
+    on_exit = function(job_id, exit_code, _)
       vim.schedule(function()
         if job_id == managed_fallback_terminal_jobid then
+          -- Send completion notification only for final task completion
+          local notifications = require("claudecode.notifications")
+          if exit_code == 0 then
+            notifications.completion()
+          else
+            notifications.error("命令執行失敗 (退出碼: " .. tostring(exit_code) .. ")")
+          end
+
           -- Ensure we are operating on the correct window and buffer before closing
           local current_winid_for_job = managed_fallback_terminal_winid
           local current_bufnr_for_job = managed_fallback_terminal_bufnr

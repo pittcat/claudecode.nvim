@@ -33,6 +33,10 @@ local function handler(params)
     })
   end
 
+  -- Send completion notification for file save
+  local notifications = require("claudecode.notifications")
+  notifications.completion()
+  
   return { message = "File saved: " .. params.filePath }
 end
 
