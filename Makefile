@@ -3,12 +3,19 @@
 # Default target
 all: format check test
 
+# Detect if we are already inside a Nix shell
+ifeq (,$(IN_NIX_SHELL))
+NIX_PREFIX := nix develop .#ci -c
+else
+NIX_PREFIX :=
+endif
+
 # Check for syntax errors
 check:
 	@echo "Checking Lua files for syntax errors..."
-	nix develop .#ci -c find lua -name "*.lua" -type f -exec lua -e "assert(loadfile('{}'))" \;
+	$(NIX_PREFIX) find lua -name "*.lua" -type f -exec lua -e "assert(loadfile('{}'))" \;
 	@echo "Running luacheck..."
-	nix develop .#ci -c luacheck lua/ tests/ --no-unused-args --no-max-line-length
+	$(NIX_PREFIX) luacheck lua/ tests/ --no-unused-args --no-max-line-length
 
 # Format all files
 format:

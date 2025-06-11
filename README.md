@@ -51,6 +51,8 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
   keys = {
     { "<leader>a", nil, desc = "AI/Claude Code" },
     { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
     { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
     {
       "<leader>as",
@@ -78,7 +80,9 @@ That's it! For more configuration options, see [Advanced Setup](#advanced-setup)
 
 ## Commands
 
-- `:ClaudeCode` - Toggle the Claude Code terminal window
+- `:ClaudeCode [arguments]` - Toggle the Claude Code terminal window (arguments are passed to claude command)
+- `:ClaudeCode --resume` - Resume a previous Claude conversation
+- `:ClaudeCode --continue` - Continue Claude conversation
 - `:ClaudeCodeSend` - Send current visual selection to Claude, or add files from tree explorer
 - `:ClaudeCodeTreeAdd` - Add selected file(s) from tree explorer to Claude context (also available via ClaudeCodeSend)
 - `:ClaudeCodeAdd <file-path> [start-line] [end-line]` - Add a specific file or directory to Claude context by path with optional line range
@@ -108,7 +112,7 @@ The `:ClaudeCodeAdd` command allows you to add files or directories directly by 
 :ClaudeCodeAdd ~/projects/myproject/
 :ClaudeCodeAdd ./README.md
 :ClaudeCodeAdd src/main.lua 50 100    " Lines 50-100 only
-:ClaudeCodeAdd config.lua 25          " From line 25 to end of file
+:ClaudeCodeAdd config.lua 25          " Only line 25
 ```
 
 #### Features
@@ -132,7 +136,7 @@ The `:ClaudeCodeAdd` command allows you to add files or directories directly by 
 
 " Add specific line ranges
 :ClaudeCodeAdd src/main.lua 50 100        " Lines 50 through 100
-:ClaudeCodeAdd config.lua 25              " From line 25 to end of file
+:ClaudeCodeAdd config.lua 25              " Only line 25
 :ClaudeCodeAdd utils.py 1 50              " First 50 lines
 :ClaudeCodeAdd README.md 10 20            " Just lines 10-20
 
@@ -196,6 +200,7 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for build instructions and development gu
       split_side = "right",
       split_width_percentage = 0.3,
       provider = "snacks", -- or "native"
+      auto_close = true, -- Auto-close terminal after command completion
     },
 
     -- Diff options
@@ -222,6 +227,29 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for build instructions and development gu
 ```
 
 </details>
+
+### Terminal Auto-Close Behavior
+
+The `auto_close` option controls what happens when Claude commands finish:
+
+**When `auto_close = true` (default):**
+
+- Terminal automatically closes after command completion
+- Error notifications shown for failed commands (non-zero exit codes)
+- Clean workflow for quick command execution
+
+**When `auto_close = false`:**
+
+- Terminal stays open after command completion
+- Allows reviewing command output and any error messages
+- Useful for debugging or when you want to see detailed output
+
+```lua
+terminal = {
+  provider = "snacks",
+  auto_close = false, -- Keep terminal open to review output
+}
+```
 
 ## Troubleshooting
 

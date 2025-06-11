@@ -215,6 +215,40 @@ describe("Diff Module", function()
     end)
   end)
 
+  describe("Filetype Propagation", function()
+    it("should propagate original filetype to proposed buffer", function()
+      diff.setup({})
+
+      -- Spy on nvim_set_option_value
+      spy.on(_G.vim.api, "nvim_set_option_value")
+
+      local mock_file = {
+        write = function() end,
+        close = function() end,
+      }
+      local old_io_open = io.open
+      rawset(io, "open", function()
+        return mock_file
+      end)
+
+      local result = diff._open_native_diff("/tmp/test.ts", "/tmp/test.ts", "-- new", "Propagate FT")
+      expect(result.success).to_be_true()
+
+      -- Verify spy called with filetype typescript
+      local calls = _G.vim.api.nvim_set_option_value.calls or {}
+      local found = false
+      for _, c in ipairs(calls) do
+        if c.vals[1] == "filetype" and c.vals[2] == "typescript" then
+          found = true
+          break
+        end
+      end
+      expect(found).to_be_true()
+
+      rawset(io, "open", old_io_open)
+    end)
+  end)
+
   describe("Open Diff Function", function()
     it("should use native provider", function()
       diff.setup({})

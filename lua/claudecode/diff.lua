@@ -225,12 +225,57 @@ function M._cleanup_diff_layout(tab_name, target_win, new_win)
   logger.debug("diff", "[CLEANUP] Layout cleanup completed for:", tab_name)
 end
 
+-- Detect filetype from a path or existing buffer (best-effort)
+local function _detect_filetype(path, buf)
+  -- 1) Try Neovim's builtin matcher if available (>=0.10)
+  if vim.filetype and type(vim.filetype.match) == "function" then
+    local ok, ft = pcall(vim.filetype.match, { filename = path })
+    if ok and ft and ft ~= "" then
+      return ft
+    end
+  end
+
+  -- 2) Try reading from existing buffer
+  if buf and vim.api.nvim_buf_is_valid(buf) then
+    local ft = vim.api.nvim_buf_get_option(buf, "filetype")
+    if ft and ft ~= "" then
+      return ft
+    end
+  end
+
+  -- 3) Fallback to simple extension mapping
+  local ext = path:match("%.([%w_%-]+)$") or ""
+  local simple_map = {
+    lua = "lua",
+    ts = "typescript",
+    js = "javascript",
+    jsx = "javascriptreact",
+    tsx = "typescriptreact",
+    py = "python",
+    go = "go",
+    rs = "rust",
+    c = "c",
+    h = "c",
+    cpp = "cpp",
+    hpp = "cpp",
+    md = "markdown",
+    sh = "sh",
+    zsh = "zsh",
+    bash = "bash",
+    json = "json",
+    yaml = "yaml",
+    yml = "yaml",
+    toml = "toml",
+  }
+  return simple_map[ext]
+end
 --- Open diff using native Neovim functionality
 -- @param old_file_path string Path to the original file
 -- @param new_file_path string Path to the new file (used for naming)
 -- @param new_file_contents string Contents of the new file
 -- @param tab_name string Name for the diff tab/view
 -- @return table Result with provider, tab_name, and success status
+
 function M._open_native_diff(old_file_path, new_file_path, new_file_contents, tab_name)
   local new_filename = vim.fn.fnamemodify(new_file_path, ":t") .. ".new"
   local tmp_file, err = M._create_temp_file(new_file_contents, new_filename)
@@ -259,9 +304,16 @@ function M._open_native_diff(old_file_path, new_file_path, new_file_contents, ta
   vim.cmd("edit " .. vim.fn.fnameescape(tmp_file))
   vim.api.nvim_buf_set_name(0, new_file_path .. " (New)")
 
+  -- Propagate filetype to the proposed buffer for proper syntax highlighting (#20)
+  local proposed_buf = vim.api.nvim_get_current_buf()
+  local old_filetype = _detect_filetype(old_file_path)
+  if old_filetype and old_filetype ~= "" then
+    vim.api.nvim_set_option_value("filetype", old_filetype, { buf = proposed_buf })
+  end
+
   vim.cmd("wincmd =")
 
-  local new_buf = vim.api.nvim_get_current_buf()
+  local new_buf = proposed_buf
   vim.api.nvim_set_option_value("buftype", "nofile", { buf = new_buf })
   vim.api.nvim_set_option_value("bufhidden", "wipe", { buf = new_buf })
   vim.api.nvim_set_option_value("swapfile", false, { buf = new_buf })
@@ -673,6 +725,12 @@ function M._create_diff_view_from_window(target_window, old_file_path, new_buffe
   vim.cmd("vsplit")
   local new_win = vim.api.nvim_get_current_win()
   vim.api.nvim_win_set_buf(new_win, new_buffer)
+
+  -- Ensure new buffer inherits filetype from original for syntax highlighting (#20)
+  local original_ft = _detect_filetype(old_file_path, original_buffer)
+  if original_ft and original_ft ~= "" then
+    vim.api.nvim_set_option_value("filetype", original_ft, { buf = new_buffer })
+  end
   vim.cmd("diffthis")
   logger.debug("diff", "Created split window", new_win, "with new buffer", new_buffer)
 
