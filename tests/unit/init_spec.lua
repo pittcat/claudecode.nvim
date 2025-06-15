@@ -291,6 +291,8 @@ describe("claudecode.init", function()
     before_each(function()
       mock_terminal = {
         toggle = spy.new(function() end),
+        simple_toggle = spy.new(function() end),
+        focus_toggle = spy.new(function() end),
         open = spy.new(function() end),
         close = spy.new(function() end),
         setup = spy.new(function() end),
@@ -369,8 +371,8 @@ describe("claudecode.init", function()
 
       command_handler({ args = "--resume --verbose" })
 
-      assert(#mock_terminal.toggle.calls > 0, "terminal.toggle was not called")
-      local call_args = mock_terminal.toggle.calls[1].vals
+      assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
+      local call_args = mock_terminal.simple_toggle.calls[1].vals
       assert.is_table(call_args[1], "First argument should be a table")
       assert.is_equal("--resume --verbose", call_args[2], "Second argument should be the command args")
     end)
@@ -412,8 +414,8 @@ describe("claudecode.init", function()
 
       command_handler({ args = "" })
 
-      assert(#mock_terminal.toggle.calls > 0, "terminal.toggle was not called")
-      local call_args = mock_terminal.toggle.calls[1].vals
+      assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
+      local call_args = mock_terminal.simple_toggle.calls[1].vals
       assert.is_nil(call_args[2], "Second argument should be nil for empty args")
     end)
 
@@ -431,8 +433,8 @@ describe("claudecode.init", function()
 
       command_handler({ args = nil })
 
-      assert(#mock_terminal.toggle.calls > 0, "terminal.toggle was not called")
-      local call_args = mock_terminal.toggle.calls[1].vals
+      assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
+      local call_args = mock_terminal.simple_toggle.calls[1].vals
       assert.is_nil(call_args[2], "Second argument should be nil when args is nil")
     end)
 
@@ -450,8 +452,8 @@ describe("claudecode.init", function()
 
       command_handler({})
 
-      assert(#mock_terminal.toggle.calls > 0, "terminal.toggle was not called")
-      local call_args = mock_terminal.toggle.calls[1].vals
+      assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
+      local call_args = mock_terminal.simple_toggle.calls[1].vals
       assert.is_nil(call_args[2], "Second argument should be nil when no args provided")
     end)
   end)

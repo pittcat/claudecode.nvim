@@ -51,6 +51,7 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
   keys = {
     { "<leader>a", nil, desc = "AI/Claude Code" },
     { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
     { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
     { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
     { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
@@ -80,12 +81,18 @@ That's it! For more configuration options, see [Advanced Setup](#advanced-setup)
 
 ## Commands
 
-- `:ClaudeCode [arguments]` - Toggle the Claude Code terminal window (arguments are passed to claude command)
+- `:ClaudeCode [arguments]` - Toggle the Claude Code terminal window (simple show/hide behavior)
+- `:ClaudeCodeFocus [arguments]` - Smart focus/toggle Claude terminal (switches to terminal if not focused, hides if focused)
 - `:ClaudeCode --resume` - Resume a previous Claude conversation
 - `:ClaudeCode --continue` - Continue Claude conversation
 - `:ClaudeCodeSend` - Send current visual selection to Claude, or add files from tree explorer
 - `:ClaudeCodeTreeAdd` - Add selected file(s) from tree explorer to Claude context (also available via ClaudeCodeSend)
 - `:ClaudeCodeAdd <file-path> [start-line] [end-line]` - Add a specific file or directory to Claude context by path with optional line range
+
+### Toggle Behavior
+
+- **`:ClaudeCode`** - Simple toggle: Always show/hide terminal regardless of current focus
+- **`:ClaudeCodeFocus`** - Smart focus: Focus terminal if not active, hide if currently focused
 
 ### Tree Integration
 
@@ -122,6 +129,35 @@ The `:ClaudeCodeAdd` command allows you to add files or directories directly by 
 - **Line range support**: Optionally specify start and end lines for files (ignored for directories)
 - **Validation**: Checks that files and directories exist before adding, validates line numbers
 - **Flexible**: Works with both individual files and entire directories
+
+## Working with Diffs
+
+When Claude proposes changes to your files, the plugin opens a native Neovim diff view showing the original file alongside the proposed changes. You have several options to accept or reject these changes:
+
+### Accepting Changes
+
+- **`:w` (save)** - Accept the changes and apply them to your file
+- **`<leader>da`** - Accept the changes using the dedicated keymap
+
+You can edit the proposed changes in the right-hand diff buffer before accepting them. This allows you to modify Claude's suggestions or make additional tweaks before applying the final version to your file.
+
+Both methods signal Claude Code to apply the changes to your file, after which the plugin automatically reloads the affected buffers to show the updated content.
+
+### Rejecting Changes
+
+- **`:q` or `:close`** - Close the diff view to reject the changes
+- **`<leader>dq`** - Reject changes using the dedicated keymap
+- **`:bdelete` or `:bwipeout`** - Delete the diff buffer to reject changes
+
+When you reject changes, the diff view closes and the original file remains unchanged.
+
+### Accepting/Rejecting from Claude Code Terminal
+
+You can also navigate to the Claude Code terminal window and accept or reject diffs directly from within Claude's interface. This provides an alternative way to manage diffs without using the Neovim-specific keymaps.
+
+### How It Works
+
+The plugin uses a signal-based approach where accepting or rejecting a diff sends a message to Claude Code rather than directly modifying files. This ensures consistency and allows Claude Code to handle the actual file operations while the plugin manages the user interface and buffer reloading.
 
 #### Examples
 
@@ -199,7 +235,7 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for build instructions and development gu
     terminal = {
       split_side = "right",
       split_width_percentage = 0.3,
-      provider = "snacks", -- or "native"
+      provider = "auto", -- "auto" (default), "snacks", or "native"
       auto_close = true, -- Auto-close terminal after command completion
     },
 
@@ -213,6 +249,7 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for build instructions and development gu
   keys = {
     { "<leader>a", nil, desc = "AI/Claude Code" },
     { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
     { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
     {
       "<leader>as",

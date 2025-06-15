@@ -129,10 +129,39 @@ function M.close()
   end
 end
 
+--- Simple toggle: always show/hide terminal regardless of focus
 --- @param cmd_string string
 --- @param env_table table
 --- @param config table
-function M.toggle(cmd_string, env_table, config)
+function M.simple_toggle(cmd_string, env_table, config)
+  if not is_available() then
+    vim.notify("Snacks.nvim terminal provider selected but Snacks.terminal not available.", vim.log.levels.ERROR)
+    return
+  end
+
+  local logger = require("claudecode.logger")
+
+  -- Check if terminal exists and is visible
+  if terminal and terminal:buf_valid() and terminal.win then
+    -- Terminal is visible, hide it
+    logger.debug("terminal", "Simple toggle: hiding visible terminal")
+    terminal:toggle()
+  elseif terminal and terminal:buf_valid() and not terminal.win then
+    -- Terminal exists but not visible, show it
+    logger.debug("terminal", "Simple toggle: showing hidden terminal")
+    terminal:toggle()
+  else
+    -- No terminal exists, create new one
+    logger.debug("terminal", "Simple toggle: creating new terminal")
+    M.open(cmd_string, env_table, config)
+  end
+end
+
+--- Smart focus toggle: switches to terminal if not focused, hides if currently focused
+--- @param cmd_string string
+--- @param env_table table
+--- @param config table
+function M.focus_toggle(cmd_string, env_table, config)
   if not is_available() then
     vim.notify("Snacks.nvim terminal provider selected but Snacks.terminal not available.", vim.log.levels.ERROR)
     return
@@ -142,7 +171,7 @@ function M.toggle(cmd_string, env_table, config)
 
   -- Terminal exists, is valid, but not visible
   if terminal and terminal:buf_valid() and not terminal.win then
-    logger.debug("terminal", "Toggle existing managed Snacks terminal")
+    logger.debug("terminal", "Focus toggle: showing hidden terminal")
     terminal:toggle()
   -- Terminal exists, is valid, and is visible
   elseif terminal and terminal:buf_valid() and terminal.win then
@@ -151,9 +180,11 @@ function M.toggle(cmd_string, env_table, config)
 
     -- you're IN it
     if claude_term_neovim_win_id == current_neovim_win_id then
+      logger.debug("terminal", "Focus toggle: hiding terminal (currently focused)")
       terminal:toggle()
     -- you're NOT in it
     else
+      logger.debug("terminal", "Focus toggle: focusing terminal")
       vim.api.nvim_set_current_win(claude_term_neovim_win_id)
       if terminal.buf and vim.api.nvim_buf_is_valid(terminal.buf) then
         if vim.api.nvim_buf_get_option(terminal.buf, "buftype") == "terminal" then
@@ -165,9 +196,17 @@ function M.toggle(cmd_string, env_table, config)
     end
   -- No terminal exists
   else
-    logger.debug("terminal", "No valid terminal exists, creating new one")
+    logger.debug("terminal", "Focus toggle: creating new terminal")
     M.open(cmd_string, env_table, config)
   end
+end
+
+--- Legacy toggle function for backward compatibility (defaults to simple_toggle)
+--- @param cmd_string string
+--- @param env_table table
+--- @param config table
+function M.toggle(cmd_string, env_table, config)
+  M.simple_toggle(cmd_string, env_table, config)
 end
 
 --- @return number|nil

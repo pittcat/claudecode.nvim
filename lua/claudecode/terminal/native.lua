@@ -4,6 +4,8 @@
 --- @type TerminalProvider
 local M = {}
 
+local logger = require("claudecode.logger")
+
 local bufnr = nil
 local winid = nil
 local jobid = nil
@@ -31,13 +33,12 @@ local function is_valid()
       if vim.api.nvim_win_get_buf(win) == bufnr then
         -- Found a window displaying our terminal buffer, update the tracked window ID
         winid = win
-        require("claudecode.logger").debug("terminal", "Recovered terminal window ID:", win)
+        logger.debug("terminal", "Recovered terminal window ID:", win)
         return true
       end
     end
-    -- Buffer exists but no window displays it
-    cleanup_state()
-    return false
+    -- Buffer exists but no window displays it - this is normal for hidden terminals
+    return true -- Buffer is valid even though not visible
   end
 
   -- Both buffer and window are valid
@@ -82,6 +83,8 @@ local function open_terminal(cmd_string, env_table, effective_config)
     on_exit = function(job_id, exit_code, _)
       vim.schedule(function()
         if job_id == jobid then
+          logger.debug("terminal", "Terminal process exited, cleaning up")
+          
           -- Send completion notification only for final task completion
           local notifications = require("claudecode.notifications")
           if exit_code == 0 then
@@ -143,7 +146,7 @@ local function close_terminal()
     -- If the job already exited, on_exit would have cleaned up.
     -- This direct close is for user-initiated close.
     vim.api.nvim_win_close(winid, true)
-    cleanup_state() -- Ensure cleanup if on_exit doesn't fire (e.g. job already dead)
+    cleanup_state() -- Cleanup after explicit close
   end
 end
 
@@ -152,6 +155,78 @@ local function focus_terminal()
     vim.api.nvim_set_current_win(winid)
     vim.cmd("startinsert")
   end
+end
+
+local function is_terminal_visible()
+  -- Check if our terminal buffer exists and is displayed in any window
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return false
+  end
+
+  local windows = vim.api.nvim_list_wins()
+  for _, win in ipairs(windows) do
+    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == bufnr then
+      -- Update our tracked window ID if we find the buffer in a different window
+      winid = win
+      return true
+    end
+  end
+
+  -- Buffer exists but no window displays it
+  winid = nil
+  return false
+end
+
+local function hide_terminal()
+  -- Hide the terminal window but keep the buffer and job alive
+  if bufnr and vim.api.nvim_buf_is_valid(bufnr) and winid and vim.api.nvim_win_is_valid(winid) then
+    -- Set buffer to hide instead of being wiped when window closes
+    vim.api.nvim_buf_set_option(bufnr, "bufhidden", "hide")
+
+    -- Close the window - this preserves the buffer and job
+    vim.api.nvim_win_close(winid, false)
+    winid = nil -- Clear window reference
+
+    logger.debug("terminal", "Terminal window hidden, process preserved")
+  end
+end
+
+local function show_hidden_terminal(effective_config)
+  -- Show an existing hidden terminal buffer in a new window
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return false
+  end
+
+  -- Check if it's already visible
+  if is_terminal_visible() then
+    focus_terminal()
+    return true
+  end
+
+  -- Create a new window for the existing buffer
+  local width = math.floor(vim.o.columns * effective_config.split_width_percentage)
+  local full_height = vim.o.lines
+  local placement_modifier
+
+  if effective_config.split_side == "left" then
+    placement_modifier = "topleft "
+  else
+    placement_modifier = "botright "
+  end
+
+  vim.cmd(placement_modifier .. width .. "vsplit")
+  local new_winid = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_height(new_winid, full_height)
+
+  -- Set the existing buffer in the new window
+  vim.api.nvim_win_set_buf(new_winid, bufnr)
+  winid = new_winid
+
+  vim.api.nvim_set_current_win(winid)
+  vim.cmd("startinsert")
+
+  logger.debug("terminal", "Showed hidden terminal in new window")
+  return true
 end
 
 local function find_existing_claude_terminal()
@@ -166,13 +241,7 @@ local function find_existing_claude_terminal()
         local windows = vim.api.nvim_list_wins()
         for _, win in ipairs(windows) do
           if vim.api.nvim_win_get_buf(win) == buf then
-            require("claudecode.logger").debug(
-              "terminal",
-              "Found existing Claude terminal in buffer",
-              buf,
-              "window",
-              win
-            )
+            logger.debug("terminal", "Found existing Claude terminal in buffer", buf, "window", win)
             return buf, win
           end
         end
@@ -201,7 +270,7 @@ function M.open(cmd_string, env_table, effective_config)
       bufnr = existing_buf
       winid = existing_win
       -- Note: We can't recover the job ID easily, but it's less critical
-      require("claudecode.logger").debug("terminal", "Recovered existing Claude terminal")
+      logger.debug("terminal", "Recovered existing Claude terminal")
       focus_terminal()
     else
       if not open_terminal(cmd_string, env_table, effective_config) then
@@ -215,41 +284,108 @@ function M.close()
   close_terminal()
 end
 
+--- Simple toggle: always show/hide terminal regardless of focus
 --- @param cmd_string string
 --- @param env_table table
 --- @param effective_config table
-function M.toggle(cmd_string, env_table, effective_config)
-  if is_valid() then
-    local claude_term_neovim_win_id = winid
-    local current_neovim_win_id = vim.api.nvim_get_current_win()
+function M.simple_toggle(cmd_string, env_table, effective_config)
+  -- Check if we have a valid terminal buffer (process running)
+  local has_buffer = bufnr and vim.api.nvim_buf_is_valid(bufnr)
+  local is_visible = has_buffer and is_terminal_visible()
 
-    if claude_term_neovim_win_id == current_neovim_win_id then
-      close_terminal()
+  if is_visible then
+    -- Terminal is visible, hide it (but keep process running)
+    hide_terminal()
+  else
+    -- Terminal is not visible
+    if has_buffer then
+      -- Terminal process exists but is hidden, show it
+      if show_hidden_terminal(effective_config) then
+        logger.debug("terminal", "Showing hidden terminal")
+      else
+        logger.error("terminal", "Failed to show hidden terminal")
+      end
     else
-      focus_terminal() -- This already calls startinsert
+      -- No terminal process exists, check if there's an existing one we lost track of
+      local existing_buf, existing_win = find_existing_claude_terminal()
+      if existing_buf and existing_win then
+        -- Recover the existing terminal
+        bufnr = existing_buf
+        winid = existing_win
+        logger.debug("terminal", "Recovered existing Claude terminal")
+        focus_terminal()
+      else
+        -- No existing terminal found, create a new one
+        if not open_terminal(cmd_string, env_table, effective_config) then
+          vim.notify("Failed to open Claude terminal using native fallback (simple_toggle).", vim.log.levels.ERROR)
+        end
+      end
+    end
+  end
+end
+
+--- Smart focus toggle: switches to terminal if not focused, hides if currently focused
+--- @param cmd_string string
+--- @param env_table table
+--- @param effective_config table
+function M.focus_toggle(cmd_string, env_table, effective_config)
+  -- Check if we have a valid terminal buffer (process running)
+  local has_buffer = bufnr and vim.api.nvim_buf_is_valid(bufnr)
+  local is_visible = has_buffer and is_terminal_visible()
+
+  if has_buffer then
+    -- Terminal process exists
+    if is_visible then
+      -- Terminal is visible - check if we're currently in it
+      local current_win_id = vim.api.nvim_get_current_win()
+      if winid == current_win_id then
+        -- We're in the terminal window, hide it (but keep process running)
+        hide_terminal()
+      else
+        -- Terminal is visible but we're not in it, focus it
+        focus_terminal()
+      end
+    else
+      -- Terminal process exists but is hidden, show it
+      if show_hidden_terminal(effective_config) then
+        logger.debug("terminal", "Showing hidden terminal")
+      else
+        logger.error("terminal", "Failed to show hidden terminal")
+      end
     end
   else
-    -- Check if there's an existing Claude terminal we lost track of
+    -- No terminal process exists, check if there's an existing one we lost track of
     local existing_buf, existing_win = find_existing_claude_terminal()
     if existing_buf and existing_win then
       -- Recover the existing terminal
       bufnr = existing_buf
       winid = existing_win
-      require("claudecode.logger").debug("terminal", "Recovered existing Claude terminal in toggle")
+      logger.debug("terminal", "Recovered existing Claude terminal")
 
-      -- Check if we're currently in this terminal
-      local current_neovim_win_id = vim.api.nvim_get_current_win()
-      if existing_win == current_neovim_win_id then
-        close_terminal()
+      -- Check if we're currently in this recovered terminal
+      local current_win_id = vim.api.nvim_get_current_win()
+      if existing_win == current_win_id then
+        -- We're in the recovered terminal, hide it
+        hide_terminal()
       else
+        -- Focus the recovered terminal
         focus_terminal()
       end
     else
+      -- No existing terminal found, create a new one
       if not open_terminal(cmd_string, env_table, effective_config) then
-        vim.notify("Failed to open Claude terminal using native fallback (toggle).", vim.log.levels.ERROR)
+        vim.notify("Failed to open Claude terminal using native fallback (focus_toggle).", vim.log.levels.ERROR)
       end
     end
   end
+end
+
+--- Legacy toggle function for backward compatibility (defaults to simple_toggle)
+--- @param cmd_string string
+--- @param env_table table
+--- @param effective_config table
+function M.toggle(cmd_string, env_table, effective_config)
+  M.simple_toggle(cmd_string, env_table, effective_config)
 end
 
 --- @return number|nil

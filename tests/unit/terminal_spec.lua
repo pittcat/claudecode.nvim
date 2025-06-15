@@ -254,6 +254,12 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
       toggle = spy.new(function(cmd, env_table, config, opts_override)
         return create_mock_terminal_instance(cmd, { env = env_table })
       end),
+      simple_toggle = spy.new(function(cmd, env_table, config, opts_override)
+        return create_mock_terminal_instance(cmd, { env = env_table })
+      end),
+      focus_toggle = spy.new(function(cmd, env_table, config, opts_override)
+        return create_mock_terminal_instance(cmd, { env = env_table })
+      end),
       get_active_bufnr = spy.new(function()
         return nil
       end),
@@ -271,6 +277,8 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
       open = spy.new(function() end),
       close = spy.new(function() end),
       toggle = spy.new(function() end),
+      simple_toggle = spy.new(function() end),
+      focus_toggle = spy.new(function() end),
       get_active_bufnr = spy.new(function()
         return nil
       end),
@@ -555,9 +563,9 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
 
       terminal_wrapper.toggle({ split_width_percentage = 0.45 })
 
-      mock_snacks_provider.toggle:was_called(1)
-      local cmd_arg = mock_snacks_provider.toggle:get_call(1).refs[1]
-      local config_arg = mock_snacks_provider.toggle:get_call(1).refs[3]
+      mock_snacks_provider.simple_toggle:was_called(1)
+      local cmd_arg = mock_snacks_provider.simple_toggle:get_call(1).refs[1]
+      local config_arg = mock_snacks_provider.simple_toggle:get_call(1).refs[3]
       assert.are.equal("toggle_claude", cmd_arg)
       assert.are.equal("left", config_arg.split_side)
       assert.are.equal(0.45, config_arg.split_width_percentage)
@@ -565,12 +573,12 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
 
     it("should call provider toggle and manage state", function()
       local mock_toggled_instance = create_mock_terminal_instance("toggled_cmd", {})
-      mock_snacks_provider.toggle = spy.new(function()
+      mock_snacks_provider.simple_toggle = spy.new(function()
         return mock_toggled_instance
       end)
 
       terminal_wrapper.toggle({})
-      mock_snacks_provider.toggle:was_called(1)
+      mock_snacks_provider.simple_toggle:was_called(1)
 
       -- After toggle, subsequent open should work with provider state
       terminal_wrapper.open()
@@ -624,8 +632,8 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
     it("should append cmd_args to base command when provided to toggle", function()
       terminal_wrapper.toggle({}, "--resume --verbose")
 
-      mock_snacks_provider.toggle:was_called(1)
-      local cmd_arg = mock_snacks_provider.toggle:get_call(1).refs[1]
+      mock_snacks_provider.simple_toggle:was_called(1)
+      local cmd_arg = mock_snacks_provider.simple_toggle:get_call(1).refs[1]
       assert.are.equal("claude --resume --verbose", cmd_arg)
     end)
 
@@ -649,8 +657,8 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
     it("should fallback gracefully when cmd_args is empty string", function()
       terminal_wrapper.toggle({}, "")
 
-      mock_snacks_provider.toggle:was_called(1)
-      local cmd_arg = mock_snacks_provider.toggle:get_call(1).refs[1]
+      mock_snacks_provider.simple_toggle:was_called(1)
+      local cmd_arg = mock_snacks_provider.simple_toggle:get_call(1).refs[1]
       assert.are.equal("claude", cmd_arg)
     end)
 
@@ -687,8 +695,8 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
 
       terminal_wrapper.toggle()
 
-      mock_snacks_provider.toggle:was_called(1)
-      local toggle_cmd = mock_snacks_provider.toggle:get_call(1).refs[1]
+      mock_snacks_provider.simple_toggle:was_called(1)
+      local toggle_cmd = mock_snacks_provider.simple_toggle:get_call(1).refs[1]
       assert.are.equal("claude", toggle_cmd)
     end)
   end)

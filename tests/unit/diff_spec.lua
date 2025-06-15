@@ -49,10 +49,11 @@ describe("Diff Module", function()
     teardown()
   end)
 
-  describe("Temporary File Management", function()
-    it("should create temporary files with correct content", function()
+  describe("Temporary File Management (via Native Diff)", function()
+    it("should create temporary files with correct content through native diff", function()
       local test_content = "This is test content\nLine 2\nLine 3"
-      local test_filename = "test.lua"
+      local old_file_path = "/path/to/old.lua"
+      local new_file_path = "/path/to/new.lua"
 
       local mock_file = {
         write = function() end,
@@ -63,32 +64,35 @@ describe("Diff Module", function()
         return mock_file
       end)
 
-      local tmp_file, err = diff._create_temp_file(test_content, test_filename)
+      local result = diff._open_native_diff(old_file_path, new_file_path, test_content, "Test Diff")
 
-      expect(tmp_file).to_be_string()
-      expect(err).to_be_nil()
-
-      local tmp_file_str = tostring(tmp_file)
-      expect(tmp_file_str:find("claudecode_diff", 1, true)).not_to_be_nil()
-      expect(tmp_file_str:find(test_filename, 1, true)).not_to_be_nil()
+      expect(result).to_be_table()
+      expect(result.success).to_be_true()
+      expect(result.temp_file).to_be_string()
+      expect(result.temp_file:find("claudecode_diff", 1, true)).not_to_be_nil()
+      local expected_suffix = vim.fn.fnamemodify(new_file_path, ":t") .. ".new"
+      expect(result.temp_file:find(expected_suffix, 1, true)).not_to_be_nil()
 
       rawset(io, "open", old_io_open)
     end)
 
-    it("should handle file creation errors", function()
+    it("should handle file creation errors in native diff", function()
       local test_content = "test"
-      local test_filename = "test.lua"
+      local old_file_path = "/path/to/old.lua"
+      local new_file_path = "/path/to/new.lua"
 
       local old_io_open = io.open
       rawset(io, "open", function()
         return nil
       end)
 
-      local tmp_file, err = diff._create_temp_file(test_content, test_filename)
+      local result = diff._open_native_diff(old_file_path, new_file_path, test_content, "Test Diff")
 
-      expect(tmp_file).to_be_nil()
-      expect(err).to_be_string()
-      expect(err:find("Failed to create temporary file", 1, true)).not_to_be_nil()
+      expect(result).to_be_table()
+      expect(result.success).to_be_false()
+      expect(result.error).to_be_string()
+      expect(result.error:find("Failed to create temporary file", 1, true)).not_to_be_nil()
+      expect(result.temp_file).to_be_nil() -- Ensure no temp_file is created on failure
 
       rawset(io, "open", old_io_open)
     end)
@@ -260,6 +264,7 @@ describe("Diff Module", function()
           success = true,
           provider = "native",
           tab_name = tab_name,
+          temp_file = "/mock/temp/file.new",
         }
       end
 

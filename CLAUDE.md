@@ -10,8 +10,7 @@ claudecode.nvim - A Neovim plugin that implements the same WebSocket-based MCP p
 
 ### Testing
 
-- `make test` - Run all tests using busted
-- `./run_tests.sh` - Direct test runner script
+- `make test` - Run all tests using busted with coverage
 - `busted tests/unit/specific_spec.lua` - Run specific test file
 - `busted --coverage -v` - Run tests with coverage
 
@@ -85,3 +84,7 @@ Test files follow the pattern `*_spec.lua` or `*_test.lua` and use the busted fr
 - WebSocket server only accepts local connections for security
 - Selection tracking is debounced to reduce overhead
 - Terminal integration supports both snacks.nvim and native Neovim terminal
+
+## CRITICAL: Pre-commit Requirements
+
+**ALWAYS run `make` before committing any changes.** This runs code quality checks and formatting that must pass for CI to succeed. Never skip this step - many PRs fail CI because contributors don't run the build commands before committing.

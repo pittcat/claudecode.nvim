@@ -74,7 +74,7 @@ M.state = {
 ---@alias ClaudeCode.TerminalOpts { \
 ---  split_side?: "left"|"right", \
 ---  split_width_percentage?: number, \
----  provider?: "snacks"|"native", \
+---  provider?: "auto"|"snacks"|"native", \
 ---  show_native_term_exit_tip?: boolean }
 ---
 ---@alias ClaudeCode.SetupOpts { \
@@ -664,10 +664,22 @@ function M._create_commands()
         vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
       end
       local cmd_args = opts.args and opts.args ~= "" and opts.args or nil
-      terminal.toggle({}, cmd_args)
+      terminal.simple_toggle({}, cmd_args)
     end, {
       nargs = "*",
-      desc = "Toggle the Claude Code terminal window with optional arguments",
+      desc = "Toggle the Claude Code terminal window (simple show/hide) with optional arguments",
+    })
+
+    vim.api.nvim_create_user_command("ClaudeCodeFocus", function(opts)
+      local current_mode = vim.fn.mode()
+      if current_mode == "v" or current_mode == "V" or current_mode == "\22" then
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+      end
+      local cmd_args = opts.args and opts.args ~= "" and opts.args or nil
+      terminal.focus_toggle({}, cmd_args)
+    end, {
+      nargs = "*",
+      desc = "Smart focus/toggle Claude Code terminal (switches to terminal if not focused, hides if focused)",
     })
 
     vim.api.nvim_create_user_command("ClaudeCodeOpen", function(opts)

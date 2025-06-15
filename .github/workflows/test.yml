@@ -49,10 +49,10 @@ jobs:
           version: ${{ matrix.neovim-version }}
 
       - name: Run Luacheck
-        run: nix develop .#ci -c luacheck lua/ tests/ --no-unused-args --no-max-line-length
+        run: nix develop .#ci -c make check
 
       - name: Run tests
-        run: nix develop .#ci -c ./run_tests.sh
+        run: nix develop .#ci -c make test
 
       - name: Check formatting
         run: nix flake check

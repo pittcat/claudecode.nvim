@@ -23,8 +23,16 @@ format:
 
 # Run tests
 test:
-	@echo "Running tests..."
-	@./run_tests.sh
+	@echo "Running all tests..."
+	@export LUA_PATH="./lua/?.lua;./lua/?/init.lua;./?.lua;./?/init.lua;$$LUA_PATH"; \
+	TEST_FILES=$$(find tests -type f -name "*_test.lua" -o -name "*_spec.lua" | sort); \
+	echo "Found test files:"; \
+	echo "$$TEST_FILES"; \
+	if [ -n "$$TEST_FILES" ]; then \
+		$(NIX_PREFIX) busted --coverage -v $$TEST_FILES; \
+	else \
+		echo "No test files found"; \
+	fi
 
 # Clean generated files
 clean:

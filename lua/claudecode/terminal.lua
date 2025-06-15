@@ -18,7 +18,7 @@ local claudecode_server_module = require("claudecode.server.init")
 local config = {
   split_side = "right",
   split_width_percentage = 0.30,
-  provider = "snacks",
+  provider = "auto",
   show_native_term_exit_tip = true,
   terminal_cmd = nil,
   auto_close = true,
@@ -48,7 +48,15 @@ end
 local function get_provider()
   local logger = require("claudecode.logger")
 
-  if config.provider == "snacks" then
+  if config.provider == "auto" then
+    -- Try snacks first, then fallback to native silently
+    local snacks_provider = load_provider("snacks")
+    if snacks_provider and snacks_provider.is_available() then
+      logger.debug("terminal", "Auto-detected snacks terminal provider")
+      return snacks_provider
+    end
+    -- Fall through to native provider
+  elseif config.provider == "snacks" then
     local snacks_provider = load_provider("snacks")
     if snacks_provider and snacks_provider.is_available() then
       return snacks_provider
@@ -196,14 +204,32 @@ function M.close()
   get_provider().close()
 end
 
---- Toggles the Claude terminal open or closed.
+--- Simple toggle: always show/hide the Claude terminal regardless of focus.
 -- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
-function M.toggle(opts_override, cmd_args)
+function M.simple_toggle(opts_override, cmd_args)
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
 
-  get_provider().toggle(cmd_string, claude_env_table, effective_config)
+  get_provider().simple_toggle(cmd_string, claude_env_table, effective_config)
+end
+
+--- Smart focus toggle: switches to terminal if not focused, hides if currently focused.
+-- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
+-- @param cmd_args string|nil (optional) Arguments to append to the claude command.
+function M.focus_toggle(opts_override, cmd_args)
+  local effective_config = build_config(opts_override)
+  local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
+
+  get_provider().focus_toggle(cmd_string, claude_env_table, effective_config)
+end
+
+--- Toggles the Claude terminal open or closed (legacy function - use simple_toggle or focus_toggle).
+-- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
+-- @param cmd_args string|nil (optional) Arguments to append to the claude command.
+function M.toggle(opts_override, cmd_args)
+  -- Default to simple toggle for backward compatibility
+  M.simple_toggle(opts_override, cmd_args)
 end
 
 --- Gets the buffer number of the currently active Claude Code terminal.
