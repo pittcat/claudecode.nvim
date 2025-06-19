@@ -71,6 +71,7 @@ describe("ClaudeCodeSend Command Range Functionality", function()
     -- Mock terminal module
     mock_terminal = {
       open = spy.new(function() end),
+      ensure_visible = spy.new(function() end),
     }
 
     -- Mock server
@@ -216,7 +217,7 @@ describe("ClaudeCodeSend Command Range Functionality", function()
       assert(mock_selection_module.last_call.line2 == nil)
     end)
 
-    it("should exit visual mode and focus terminal on successful send", function()
+    it("should exit visual mode on successful send", function()
       assert(command_callback ~= nil, "Command callback should be set")
 
       local opts = {
@@ -228,7 +229,8 @@ describe("ClaudeCodeSend Command Range Functionality", function()
       command_callback(opts)
 
       assert.spy(_G.vim.api.nvim_feedkeys).was_called()
-      assert.spy(mock_terminal.open).was_called()
+      -- Terminal should not be automatically opened
+      assert.spy(mock_terminal.open).was_not_called()
     end)
 
     it("should handle server not running", function()
@@ -245,8 +247,8 @@ describe("ClaudeCodeSend Command Range Functionality", function()
 
       command_callback(opts)
 
-      assert.spy(_G.vim.notify).was_called()
-      assert.spy(mock_selection_module.send_at_mention_for_visual_selection).was_not_called()
+      -- The command should call the selection module, which will handle the error
+      assert.spy(mock_selection_module.send_at_mention_for_visual_selection).was_called()
     end)
 
     it("should handle selection module failure", function()

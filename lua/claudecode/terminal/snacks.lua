@@ -5,6 +5,7 @@
 local M = {}
 
 local snacks_available, Snacks = pcall(require, "snacks")
+local utils = require("claudecode.utils")
 local terminal = nil
 
 --- @return boolean
@@ -46,14 +47,17 @@ local function setup_terminal_events(term_instance, config)
   end, { buf = true })
 end
 
---- @param config table
---- @param env_table table
---- @return table
-local function build_opts(config, env_table)
+--- Builds Snacks terminal options with focus control
+--- @param config table Terminal configuration (split_side, split_width_percentage, etc.)
+--- @param env_table table Environment variables to set for the terminal process
+--- @param focus boolean|nil Whether to focus the terminal when opened (defaults to true)
+--- @return table Snacks terminal options with start_insert/auto_insert controlled by focus parameter
+local function build_opts(config, env_table, focus)
+  focus = utils.normalize_focus(focus)
   return {
     env = env_table,
-    start_insert = true,
-    auto_insert = true,
+    start_insert = focus,
+    auto_insert = focus,
     auto_close = false,
     win = {
       position = config.split_side,
@@ -71,24 +75,50 @@ end
 --- @param cmd_string string
 --- @param env_table table
 --- @param config table
-function M.open(cmd_string, env_table, config)
+--- @param focus boolean|nil
+function M.open(cmd_string, env_table, config, focus)
   if not is_available() then
     vim.notify("Snacks.nvim terminal provider selected but Snacks.terminal not available.", vim.log.levels.ERROR)
     return
   end
 
+  focus = utils.normalize_focus(focus)
+
   if terminal and terminal:buf_valid() then
-    terminal:focus()
-    local term_buf_id = terminal.buf
-    if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
-      vim.api.nvim_win_call(terminal.win, function()
-        vim.cmd("startinsert")
-      end)
+    -- Check if terminal exists but is hidden (no window)
+    if not terminal.win or not vim.api.nvim_win_is_valid(terminal.win) then
+      -- Terminal is hidden, show it using snacks toggle
+      terminal:toggle()
+      if focus then
+        terminal:focus()
+        local term_buf_id = terminal.buf
+        if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
+          if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
+            vim.api.nvim_win_call(terminal.win, function()
+              vim.cmd("startinsert")
+            end)
+          end
+        end
+      end
+    else
+      -- Terminal is already visible
+      if focus then
+        terminal:focus()
+        local term_buf_id = terminal.buf
+        if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
+          -- Check if window is valid before calling nvim_win_call
+          if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
+            vim.api.nvim_win_call(terminal.win, function()
+              vim.cmd("startinsert")
+            end)
+          end
+        end
+      end
     end
     return
   end
 
-  local opts = build_opts(config, env_table)
+  local opts = build_opts(config, env_table, focus)
   local term_instance = Snacks.terminal.open(cmd_string, opts)
   if term_instance and term_instance:buf_valid() then
     setup_terminal_events(term_instance, config)

@@ -59,8 +59,11 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim):
       "<leader>as",
       "<cmd>ClaudeCodeTreeAdd<cr>",
       desc = "Add file",
-      ft = { "NvimTree", "neo-tree" },
+      ft = { "NvimTree", "neo-tree", "oil" },
     },
+    -- Diff management
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
   },
 }
 ```
@@ -88,6 +91,8 @@ That's it! For more configuration options, see [Advanced Setup](#advanced-setup)
 - `:ClaudeCodeSend` - Send current visual selection to Claude, or add files from tree explorer
 - `:ClaudeCodeTreeAdd` - Add selected file(s) from tree explorer to Claude context (also available via ClaudeCodeSend)
 - `:ClaudeCodeAdd <file-path> [start-line] [end-line]` - Add a specific file or directory to Claude context by path with optional line range
+- `:ClaudeCodeDiffAccept` - Accept the current diff changes (equivalent to `<leader>aa`)
+- `:ClaudeCodeDiffDeny` - Deny/reject the current diff changes (equivalent to `<leader>ad`)
 
 ### Toggle Behavior
 
@@ -99,15 +104,15 @@ That's it! For more configuration options, see [Advanced Setup](#advanced-setup)
 The `<leader>as` keybinding has context-aware behavior:
 
 - **In normal buffers (visual mode)**: Sends selected text to Claude
-- **In nvim-tree/neo-tree buffers**: Adds the file under cursor (or selected files) to Claude's context
+- **In nvim-tree/neo-tree/oil.nvim buffers**: Adds the file under cursor (or selected files) to Claude's context
 
 This allows you to quickly add entire files to Claude's context for review, refactoring, or discussion.
 
 #### Features
 
 - **Single file**: Place cursor on any file and press `<leader>as`
-- **Multiple files**: Select multiple files (using tree plugin's selection features) and press `<leader>as`
-- **Smart detection**: Automatically detects whether you're in nvim-tree or neo-tree
+- **Multiple files**: Select multiple files (using tree plugin's selection features or visual selection in oil.nvim) and press `<leader>as`
+- **Smart detection**: Automatically detects whether you're in nvim-tree, neo-tree, or oil.nvim
 - **Error handling**: Clear feedback if no files are selected or if tree plugins aren't available
 
 ### Direct File Addition
@@ -137,7 +142,7 @@ When Claude proposes changes to your files, the plugin opens a native Neovim dif
 ### Accepting Changes
 
 - **`:w` (save)** - Accept the changes and apply them to your file
-- **`<leader>da`** - Accept the changes using the dedicated keymap
+- **`<leader>aa`** - Accept the changes using the dedicated keymap (configured in LazyVim spec)
 
 You can edit the proposed changes in the right-hand diff buffer before accepting them. This allows you to modify Claude's suggestions or make additional tweaks before applying the final version to your file.
 
@@ -146,7 +151,7 @@ Both methods signal Claude Code to apply the changes to your file, after which t
 ### Rejecting Changes
 
 - **`:q` or `:close`** - Close the diff view to reject the changes
-- **`<leader>dq`** - Reject changes using the dedicated keymap
+- **`<leader>ad`** - Reject changes using the dedicated keymap (configured in LazyVim spec)
 - **`:bdelete` or `:bwipeout`** - Delete the diff buffer to reject changes
 
 When you reject changes, the diff view closes and the original file remains unchanged.
@@ -154,6 +159,28 @@ When you reject changes, the diff view closes and the original file remains unch
 ### Accepting/Rejecting from Claude Code Terminal
 
 You can also navigate to the Claude Code terminal window and accept or reject diffs directly from within Claude's interface. This provides an alternative way to manage diffs without using the Neovim-specific keymaps.
+
+### Customizing Diff Keymaps
+
+The diff keymaps are configured in the LazyVim spec and can be customized by modifying the `keys` table:
+
+```lua
+{
+  "coder/claudecode.nvim",
+  config = true,
+  keys = {
+    -- ... other keymaps ...
+
+    -- Customize diff keymaps to avoid conflicts (e.g., with debugger)
+    { "<leader>ya", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>yn", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+
+    -- Or disable them entirely by omitting them from the keys table
+  },
+}
+```
+
+The commands `ClaudeCodeDiffAccept` and `ClaudeCodeDiffDeny` work only in diff buffers created by the plugin and will show a warning if used elsewhere.
 
 ### How It Works
 
@@ -214,10 +241,43 @@ For deep technical details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 See [DEVELOPMENT.md](./DEVELOPMENT.md) for build instructions and development guidelines. Tests can be run with `make test`.
 
-## Advanced Setup
+## Configuration
+
+### Quick Setup
+
+For most users, the default configuration is sufficient:
+
+```lua
+{
+  "coder/claudecode.nvim",
+  dependencies = {
+    "folke/snacks.nvim", -- optional
+  },
+  config = true,
+  keys = {
+    { "<leader>a", nil, desc = "AI/Claude Code" },
+    { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
+    { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
+    {
+      "<leader>as",
+      "<cmd>ClaudeCodeTreeAdd<cr>",
+      desc = "Add file",
+      ft = { "NvimTree", "neo-tree", "oil" },
+    },
+    -- Diff management
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+  },
+}
+```
+
+### Advanced Configuration
 
 <details>
-<summary>Full configuration with all options</summary>
+<summary>Complete configuration options</summary>
 
 ```lua
 {
@@ -225,66 +285,196 @@ See [DEVELOPMENT.md](./DEVELOPMENT.md) for build instructions and development gu
   dependencies = {
     "folke/snacks.nvim", -- Optional for enhanced terminal
   },
-  opts = {
-    -- Server options
-    port_range = { min = 10000, max = 65535 },
-    auto_start = true,
-    log_level = "info",
-
-    -- Terminal options
-    terminal = {
-      split_side = "right",
-      split_width_percentage = 0.3,
-      provider = "auto", -- "auto" (default), "snacks", or "native"
-      auto_close = true, -- Auto-close terminal after command completion
-    },
-
-    -- Diff options
-    diff_opts = {
-      auto_close_on_accept = true,
-      vertical_split = true,
-    },
-  },
-  config = true,
   keys = {
     { "<leader>a", nil, desc = "AI/Claude Code" },
     { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
     { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
     { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
     {
       "<leader>as",
       "<cmd>ClaudeCodeTreeAdd<cr>",
       desc = "Add file",
-      ft = { "NvimTree", "neo-tree" },
+      ft = { "NvimTree", "neo-tree", "oil" },
     },
-    { "<leader>ao", "<cmd>ClaudeCodeOpen<cr>", desc = "Open Claude" },
-    { "<leader>ax", "<cmd>ClaudeCodeClose<cr>", desc = "Close Claude" },
+    -- Diff management
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+  },
+  opts = {
+    -- Server Configuration
+    port_range = { min = 10000, max = 65535 },  -- WebSocket server port range
+    auto_start = true,                          -- Auto-start server on Neovim startup
+    log_level = "info",                         -- "trace", "debug", "info", "warn", "error"
+    terminal_cmd = nil,                         -- Custom terminal command (default: "claude")
+
+    -- Selection Tracking
+    track_selection = true,                     -- Enable real-time selection tracking
+    visual_demotion_delay_ms = 50,             -- Delay before demoting visual selection (ms)
+
+    -- Connection Management
+    connection_wait_delay = 200,                -- Wait time after connection before sending queued @ mentions (ms)
+    connection_timeout = 10000,                 -- Max time to wait for Claude Code connection (ms)
+    queue_timeout = 5000,                       -- Max time to keep @ mentions in queue (ms)
+
+    -- Terminal Configuration
+    terminal = {
+      split_side = "right",                     -- "left" or "right"
+      split_width_percentage = 0.30,            -- Width as percentage (0.0 to 1.0)
+      provider = "auto",                        -- "auto", "snacks", or "native"
+      show_native_term_exit_tip = true,         -- Show exit tip for native terminal
+      auto_close = true,                        -- Auto-close terminal after command completion
+    },
+
+    -- Diff Integration
+    diff_opts = {
+      auto_close_on_accept = true,              -- Close diff view after accepting changes
+      show_diff_stats = true,                   -- Show diff statistics
+      vertical_split = true,                    -- Use vertical split for diffs
+      open_in_current_tab = true,               -- Open diffs in current tab vs new tab
+    },
   },
 }
 ```
 
 </details>
 
-### Terminal Auto-Close Behavior
+### Configuration Options Explained
 
-The `auto_close` option controls what happens when Claude commands finish:
+#### Server Options
 
-**When `auto_close = true` (default):**
+- **`port_range`**: Port range for the WebSocket server that Claude connects to
+- **`auto_start`**: Whether to automatically start the integration when Neovim starts
+- **`terminal_cmd`**: Override the default "claude" command (useful for custom Claude installations)
+- **`log_level`**: Controls verbosity of plugin logs
 
-- Terminal automatically closes after command completion
-- Error notifications shown for failed commands (non-zero exit codes)
-- Clean workflow for quick command execution
+#### Selection Tracking
 
-**When `auto_close = false`:**
+- **`track_selection`**: Enables real-time selection updates sent to Claude
+- **`visual_demotion_delay_ms`**: Time to wait before switching from visual selection to cursor position tracking
 
-- Terminal stays open after command completion
-- Allows reviewing command output and any error messages
-- Useful for debugging or when you want to see detailed output
+#### Connection Management
+
+- **`connection_wait_delay`**: Prevents overwhelming Claude with rapid @ mentions after connection
+- **`connection_timeout`**: How long to wait for Claude to connect before giving up
+- **`queue_timeout`**: How long to keep queued @ mentions before discarding them
+
+#### Terminal Configuration
+
+- **`split_side`**: Which side to open the terminal split (`"left"` or `"right"`)
+- **`split_width_percentage`**: Terminal width as a fraction of screen width (0.1 = 10%, 0.5 = 50%)
+- **`provider`**: Terminal implementation to use:
+  - `"auto"`: Try snacks.nvim, fallback to native
+  - `"snacks"`: Force snacks.nvim (requires folke/snacks.nvim)
+  - `"native"`: Use built-in Neovim terminal
+- **`show_native_term_exit_tip`**: Show help text for exiting native terminal
+- **`auto_close`**: Automatically close terminal when commands finish
+
+#### Diff Options
+
+- **`auto_close_on_accept`**: Close diff view after accepting changes with `:w` or `<leader>aa`
+- **`show_diff_stats`**: Display diff statistics (lines added/removed)
+- **`vertical_split`**: Use vertical split layout for diffs
+- **`open_in_current_tab`**: Open diffs in current tab instead of creating new tabs
+
+### Example Configurations
+
+#### Minimal Configuration
 
 ```lua
-terminal = {
-  provider = "snacks",
-  auto_close = false, -- Keep terminal open to review output
+{
+  "coder/claudecode.nvim",
+  keys = {
+    { "<leader>a", nil, desc = "AI/Claude Code" },
+    { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
+    { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
+    {
+      "<leader>as",
+      "<cmd>ClaudeCodeTreeAdd<cr>",
+      desc = "Add file",
+      ft = { "NvimTree", "neo-tree", "oil" },
+    },
+    -- Diff management
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+  },
+  opts = {
+    log_level = "warn",  -- Reduce log verbosity
+    auto_start = false,  -- Manual startup only
+  },
+}
+```
+
+#### Power User Configuration
+
+```lua
+{
+  "coder/claudecode.nvim",
+  keys = {
+    { "<leader>a", nil, desc = "AI/Claude Code" },
+    { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
+    { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
+    {
+      "<leader>as",
+      "<cmd>ClaudeCodeTreeAdd<cr>",
+      desc = "Add file",
+      ft = { "NvimTree", "neo-tree", "oil" },
+    },
+    -- Diff management
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+  },
+  opts = {
+    log_level = "debug",
+    visual_demotion_delay_ms = 100,  -- Slower selection demotion
+    connection_wait_delay = 500,     -- Longer delay for @ mention batching
+    terminal = {
+      split_side = "left",
+      split_width_percentage = 0.4,  -- Wider terminal
+      provider = "snacks",
+      auto_close = false,            -- Keep terminal open to review output
+    },
+    diff_opts = {
+      vertical_split = false,        -- Horizontal diffs
+      open_in_current_tab = false,   -- New tabs for diffs
+    },
+  },
+}
+```
+
+#### Custom Claude Installation
+
+```lua
+{
+  "coder/claudecode.nvim",
+  keys = {
+    { "<leader>a", nil, desc = "AI/Claude Code" },
+    { "<leader>ac", "<cmd>ClaudeCode<cr>", desc = "Toggle Claude" },
+    { "<leader>af", "<cmd>ClaudeCodeFocus<cr>", desc = "Focus Claude" },
+    { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
+    { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
+    { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
+    {
+      "<leader>as",
+      "<cmd>ClaudeCodeTreeAdd<cr>",
+      desc = "Add file",
+      ft = { "NvimTree", "neo-tree", "oil" },
+    },
+    -- Diff management
+    { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
+    { "<leader>ad", "<cmd>ClaudeCodeDiffDeny<cr>", desc = "Deny diff" },
+  },
+  opts = {
+    terminal_cmd = "/opt/claude/bin/claude",  -- Custom Claude path
+    port_range = { min = 20000, max = 25000 }, -- Different port range
+  },
 }
 ```
 
