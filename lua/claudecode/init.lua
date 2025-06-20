@@ -874,6 +874,19 @@ function M._create_commands()
     end, {
       desc = "Close the Claude Code terminal window",
     })
+
+    vim.api.nvim_create_user_command("ClaudeCodeUnsafe", function(opts)
+      local current_mode = vim.fn.mode()
+      if current_mode == "v" or current_mode == "V" or current_mode == "\22" then
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "n", false)
+      end
+      local user_args = opts.args and opts.args ~= "" and (" " .. opts.args) or ""
+      local cmd_args = "--dangerously-skip-permissions" .. user_args
+      terminal.simple_toggle({}, cmd_args)
+    end, {
+      nargs = "*",
+      desc = "Toggle the Claude Code terminal with --dangerously-skip-permissions flag",
+    })
   else
     logger.error(
       "init",
