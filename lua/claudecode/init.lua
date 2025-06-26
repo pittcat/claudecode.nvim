@@ -359,13 +359,6 @@ function M.start(show_startup_notification)
   end
 
   local server = require("claudecode.server.init")
-<<<<<<< HEAD
-  local success, result = server.start(M.state.config)
-
-  if not success then
-    logger.error("init", "Failed to start Claude Code integration: " .. result)
-    return false, result
-=======
   local lockfile = require("claudecode.lockfile")
 
   -- Generate auth token first so we can pass it to the server
@@ -398,30 +391,18 @@ function M.start(show_startup_notification)
     end
     logger.error("init", error_msg)
     return false, error_msg
->>>>>>> origin/main
   end
 
   M.state.server = server
   M.state.port = tonumber(result)
-<<<<<<< HEAD
-
-  local lockfile = require("claudecode.lockfile")
-  local lock_success, lock_result = lockfile.create(M.state.port)
-=======
   M.state.auth_token = auth_token
 
   local lock_success, lock_result, returned_auth_token = lockfile.create(M.state.port, auth_token)
->>>>>>> origin/main
 
   if not lock_success then
     server.stop()
     M.state.server = nil
     M.state.port = nil
-<<<<<<< HEAD
-
-    logger.error("init", "Failed to create lock file: " .. lock_result)
-    return false, lock_result
-=======
     M.state.auth_token = nil
 
     local error_msg = "Failed to create lock file: " .. (lock_result or "unknown error")
@@ -442,7 +423,6 @@ function M.start(show_startup_notification)
     local error_msg = "Authentication token mismatch between server and lock file"
     logger.error("init", error_msg)
     return false, error_msg
->>>>>>> origin/main
   end
 
   if M.state.config.track_selection then
@@ -488,10 +468,7 @@ function M.stop()
 
   M.state.server = nil
   M.state.port = nil
-<<<<<<< HEAD
-=======
   M.state.auth_token = nil
->>>>>>> origin/main
 
   -- Clear any queued @ mentions when server stops
   clear_mention_queue()
