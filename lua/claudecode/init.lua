@@ -969,66 +969,8 @@ function M._create_commands()
     desc = "Deny/reject the current diff changes",
   })
 
-  -- 调试相关命令
-  vim.api.nvim_create_user_command("ClaudeCodeDebugLogPath", function()
-    local logger = require("claudecode.logger")
-    local log_path = logger.get_log_file_path()
-    vim.notify("ClaudeCode debug log path: " .. log_path, vim.log.levels.INFO)
-    print("ClaudeCode debug log path: " .. log_path)
-  end, {
-    desc = "Show the path to the ClaudeCode debug log file",
-  })
 
-  vim.api.nvim_create_user_command("ClaudeCodeDebugLogClear", function()
-    local logger = require("claudecode.logger")
-    logger.clear_log_file()
-    vim.notify("ClaudeCode debug log cleared", vim.log.levels.INFO)
-  end, {
-    desc = "Clear the ClaudeCode debug log file",
-  })
 
-  vim.api.nvim_create_user_command("ClaudeCodeDebugLogTail", function()
-    local logger = require("claudecode.logger")
-    local log_path = logger.get_log_file_path()
-    vim.cmd("tabnew " .. log_path)
-    vim.cmd("normal! G")  -- 跳到文件末尾
-  end, {
-    desc = "Open the ClaudeCode debug log file in a new tab",
-  })
-
-  -- 焦点调试相关命令
-  vim.api.nvim_create_user_command("ClaudeCodeDebugFocusStart", function()
-    local focus_debug = require("claudecode.focus_debug")
-    focus_debug.start_monitoring()
-    vim.notify("ClaudeCode focus debugging started", vim.log.levels.INFO)
-  end, {
-    desc = "Start monitoring window focus changes for flicker debugging",
-  })
-
-  vim.api.nvim_create_user_command("ClaudeCodeDebugFocusStop", function()
-    local focus_debug = require("claudecode.focus_debug")
-    focus_debug.stop_monitoring()
-    vim.notify("ClaudeCode focus debugging stopped", vim.log.levels.INFO)
-  end, {
-    desc = "Stop monitoring window focus changes",
-  })
-
-  -- 防闪烁控制命令
-  vim.api.nvim_create_user_command("ClaudeCodeAntiFlickerStart", function()
-    local anti_flicker = require("claudecode.anti_flicker")
-    anti_flicker.start_temporary_anti_flicker(1000) -- 1秒的防闪烁模式
-    vim.notify("ClaudeCode anti-flicker mode activated for 1 second", vim.log.levels.INFO)
-  end, {
-    desc = "Activate anti-flicker mode temporarily",
-  })
-
-  vim.api.nvim_create_user_command("ClaudeCodeAntiFlickerStop", function()
-    local anti_flicker = require("claudecode.anti_flicker")
-    anti_flicker.stop_anti_flicker()
-    vim.notify("ClaudeCode anti-flicker mode deactivated", vim.log.levels.INFO)
-  end, {
-    desc = "Deactivate anti-flicker mode",
-  })
 end
 
 --- Get version information

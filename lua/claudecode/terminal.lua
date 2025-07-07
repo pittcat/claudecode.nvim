@@ -265,17 +265,10 @@ end
 -- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.open(opts_override, cmd_args)
-  local logger = require("claudecode.logger")
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.open START - args:", cmd_args)
-  
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
-  
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Calling provider.open - provider:", config.provider)
-  local open_start_time = vim.loop.hrtime()
+
   get_provider().open(cmd_string, claude_env_table, effective_config)
-  local open_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.open COMPLETED - time:", (open_end_time - open_start_time) / 1000000, "ms")
 end
 
 --- Closes the managed Claude terminal if it's open and valid.
@@ -287,34 +280,20 @@ end
 -- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.simple_toggle(opts_override, cmd_args)
-  local logger = require("claudecode.logger")
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.simple_toggle START - args:", cmd_args)
-  
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Calling provider.simple_toggle - provider:", config.provider)
-  local toggle_start_time = vim.loop.hrtime()
   get_provider().simple_toggle(cmd_string, claude_env_table, effective_config)
-  local toggle_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.simple_toggle COMPLETED - time:", (toggle_end_time - toggle_start_time) / 1000000, "ms")
 end
 
 --- Smart focus toggle: switches to terminal if not focused, hides if currently focused.
 -- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.focus_toggle(opts_override, cmd_args)
-  local logger = require("claudecode.logger")
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.focus_toggle START - args:", cmd_args)
-  
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Calling provider.focus_toggle - provider:", config.provider)
-  local toggle_start_time = vim.loop.hrtime()
   get_provider().focus_toggle(cmd_string, claude_env_table, effective_config)
-  local toggle_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.focus_toggle COMPLETED - time:", (toggle_end_time - toggle_start_time) / 1000000, "ms")
 end
 
 --- Toggle open terminal without focus if not already visible, otherwise do nothing.

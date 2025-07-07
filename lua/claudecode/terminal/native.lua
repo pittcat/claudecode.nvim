@@ -48,17 +48,10 @@ end
 
 local function open_terminal(cmd_string, env_table, effective_config, focus)
   focus = utils.normalize_focus(focus)
-  
-  -- DEBUG: Terminal creation start
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] open_terminal START - cmd:", cmd_string, "focus:", focus)
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] current_win before:", vim.api.nvim_get_current_win())
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] screen_size:", vim.o.columns, "x", vim.o.lines)
 
   if is_valid() then -- Should not happen if called correctly, but as a safeguard
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal already exists - bufnr:", bufnr, "winid:", winid)
     if focus then
       -- Focus existing terminal: switch to terminal window and enter insert mode
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Focusing existing terminal window:", winid)
       vim.api.nvim_set_current_win(winid)
       vim.cmd("startinsert")
     end
@@ -71,35 +64,19 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
   local full_height = vim.o.lines
   local placement_modifier
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Creating new terminal window - original_win:", original_win)
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal dimensions:", width, "x", full_height)
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Split config:", effective_config.split_side, effective_config.split_width_percentage)
-
   if effective_config.split_side == "left" then
     placement_modifier = "topleft "
   else
     placement_modifier = "botright "
   end
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE vsplit command:", placement_modifier .. width .. "vsplit")
-  local split_start_time = vim.loop.hrtime()
   vim.cmd(placement_modifier .. width .. "vsplit")
-  local split_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER vsplit - time:", (split_end_time - split_start_time) / 1000000, "ms")
-  
   local new_winid = vim.api.nvim_get_current_win()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] New window created - winid:", new_winid)
-  
   vim.api.nvim_win_set_height(new_winid, full_height)
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Window height set to:", full_height)
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE enew command")
-  local enew_start_time = vim.loop.hrtime()
   vim.api.nvim_win_call(new_winid, function()
     vim.cmd("enew")
   end)
-  local enew_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER enew - time:", (enew_end_time - enew_start_time) / 1000000, "ms")
 
   local term_cmd_arg
   if cmd_string:find(" ", 1, true) then
@@ -108,8 +85,6 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
     term_cmd_arg = { cmd_string }
   end
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE termopen - cmd_arg:", vim.inspect(term_cmd_arg))
-  local termopen_start_time = vim.loop.hrtime()
   jobid = vim.fn.termopen(term_cmd_arg, {
     env = env_table,
     on_exit = function(job_id, _, _)
@@ -148,30 +123,19 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
     return false
   end
 
-  local termopen_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER termopen - time:", (termopen_end_time - termopen_start_time) / 1000000, "ms")
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] termopen result - jobid:", jobid)
-
   winid = new_winid
   bufnr = vim.api.nvim_get_current_buf()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal state set - bufnr:", bufnr, "winid:", winid)
   vim.bo[bufnr].bufhidden = "wipe" -- Wipe buffer when hidden (e.g., window closed)
   -- buftype=terminal is set by termopen
   
   -- Fix terminal display corruption with reduced scrollback for better performance
   local scrollback_size = 1000  -- Reduced from 10000 to prevent render lag
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE scrollback setup - size:", scrollback_size)
-  local scrollback_start_time = vim.loop.hrtime()
   vim.wo[winid].scrollback = scrollback_size
   vim.api.nvim_buf_set_option(bufnr, "scrollback", scrollback_size)
-  local scrollback_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER scrollback setup - time:", (scrollback_end_time - scrollback_start_time) / 1000000, "ms")
   
   -- Apply minimal display fixes to prevent flickering
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE vim.schedule for autocmd setup")
   vim.schedule(function()
     if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_win_is_valid(winid) then
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Inside vim.schedule - setting up autocmd")
       -- Remove the immediate redraw to prevent initial flicker
       -- vim.cmd("redraw!")  -- REMOVED: This causes initial screen flash
       
@@ -182,10 +146,8 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
       vim.api.nvim_create_autocmd("BufEnter", {
         buffer = bufnr,
         callback = function()
-          logger.debug("terminal_debug", "[FLICKER_DEBUG] BufEnter triggered for bufnr:", bufnr)
           local now = vim.loop.hrtime() / 1000000  -- Convert to milliseconds
           if now - last_redraw > redraw_throttle then
-            logger.debug("terminal_debug", "[FLICKER_DEBUG] Redraw throttle passed - checking for corruption")
             vim.schedule(function()
               if vim.api.nvim_get_current_buf() == bufnr then
                 -- Only redraw if there are visible display issues
@@ -200,19 +162,11 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
                 end
                 
                 if has_corruption then
-                  logger.debug("terminal_debug", "[FLICKER_DEBUG] CORRUPTION DETECTED - executing redraw!")
-                  local redraw_start_time = vim.loop.hrtime()
                   vim.cmd("redraw!")
-                  local redraw_end_time = vim.loop.hrtime()
-                  logger.debug("terminal_debug", "[FLICKER_DEBUG] REDRAW COMPLETED - time:", (redraw_end_time - redraw_start_time) / 1000000, "ms")
                   last_redraw = now
-                else
-                  logger.debug("terminal_debug", "[FLICKER_DEBUG] No corruption detected - skipping redraw")
                 end
               end
             end)
-          else
-            logger.debug("terminal_debug", "[FLICKER_DEBUG] Redraw throttled - time since last:", now - last_redraw, "ms")
           end
         end,
         once = false,
@@ -220,31 +174,19 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
     end
   end)
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE focus handling - focus:", focus)
   if focus then
     -- Focus the terminal: switch to terminal window and enter insert mode
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Focusing terminal - switching to winid:", winid)
-    local focus_start_time = vim.loop.hrtime()
     vim.api.nvim_set_current_win(winid)
     vim.cmd("startinsert")
-    local focus_end_time = vim.loop.hrtime()
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Focus completed - time:", (focus_end_time - focus_start_time) / 1000000, "ms")
   else
     -- Preserve user context: return to the window they were in before terminal creation
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Preserving context - returning to original_win:", original_win)
-    local context_start_time = vim.loop.hrtime()
     vim.api.nvim_set_current_win(original_win)
-    local context_end_time = vim.loop.hrtime()
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Context preserved - time:", (context_end_time - context_start_time) / 1000000, "ms")
   end
 
   if config.show_native_term_exit_tip and not tip_shown then
     vim.notify("Native terminal opened. Press Ctrl-\\ Ctrl-N to return to Normal mode.", vim.log.levels.INFO)
     tip_shown = true
   end
-  
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] open_terminal COMPLETED - final winid:", winid, "bufnr:", bufnr)
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] current_win after:", vim.api.nvim_get_current_win())
   return true
 end
 

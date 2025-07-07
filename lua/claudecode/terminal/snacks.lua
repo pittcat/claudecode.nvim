@@ -25,11 +25,10 @@ local function setup_terminal_events(term_instance, config)
   local last_buf_leave = 0
   local event_throttle_ms = 100  -- 100ms 内的重复事件将被忽略
 
-  -- 添加节流的调试事件监听
+  -- 添加节流的事件监听
   term_instance:on("BufEnter", function()
     local now = vim.loop.hrtime() / 1000000
     if now - last_buf_enter > event_throttle_ms then
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Snacks terminal BufEnter event (throttled)")
       last_buf_enter = now
       
       -- 在 BufEnter 时应用防闪烁设置
@@ -41,15 +40,12 @@ local function setup_terminal_events(term_instance, config)
           pcall(vim.api.nvim_win_set_option, term_instance.win, "relativenumber", false)
         end
       end)
-    else
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] BufEnter event ignored (too frequent)")
     end
   end, { buf = true })
   
   term_instance:on("WinEnter", function()
     local now = vim.loop.hrtime() / 1000000
     if now - last_win_enter > event_throttle_ms then
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Snacks terminal WinEnter event (throttled)")
       last_win_enter = now
       
       -- 在窗口进入时启动防闪烁模式
@@ -58,7 +54,6 @@ local function setup_terminal_events(term_instance, config)
       -- 检查是否为快速切换（与上次 BufLeave 的时间间隔）
       local time_since_last_leave = now - last_buf_leave
       if time_since_last_leave < 500 then  -- 500ms 内的切换视为快速切换
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] Rapid window switching detected")
         anti_flicker.handle_rapid_switching()
       else
         anti_flicker.start_temporary_anti_flicker(150)
@@ -66,25 +61,19 @@ local function setup_terminal_events(term_instance, config)
       
       -- 优化终端窗口
       anti_flicker.optimize_terminal_window(term_instance.win, term_instance.buf)
-    else
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] WinEnter event ignored (too frequent)")
     end
   end, { buf = true })
   
   term_instance:on("BufLeave", function()
     local now = vim.loop.hrtime() / 1000000
     if now - last_buf_leave > event_throttle_ms then
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Snacks terminal BufLeave event (throttled)")
       last_buf_leave = now
-    else
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] BufLeave event ignored (too frequent)")
     end
   end, { buf = true })
 
   -- Handle command completion/exit - only if auto_close is enabled
   if config.auto_close then
     term_instance:on("TermClose", function()
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Snacks terminal TermClose event")
       if vim.v.event.status ~= 0 then
         logger.error("terminal", "Claude exited with code " .. vim.v.event.status .. ".\nCheck for any errors.")
       end
@@ -100,7 +89,6 @@ local function setup_terminal_events(term_instance, config)
 
   -- Handle buffer deletion
   term_instance:on("BufWipeout", function()
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Snacks terminal BufWipeout event")
     logger.debug("terminal", "Terminal buffer wiped")
     terminal = nil
   end, { buf = true })
@@ -165,101 +153,57 @@ function M.open(cmd_string, env_table, config, focus)
   end
 
   focus = utils.normalize_focus(focus)
-  local logger = require("claudecode.logger")
-  
-  -- DEBUG: Snacks terminal creation start
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] snacks.open START - cmd:", cmd_string, "focus:", focus)
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] current_win before:", vim.api.nvim_get_current_win())
 
   if terminal and terminal:buf_valid() then
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal already exists - buf:", terminal.buf, "win:", terminal.win)
     -- Check if terminal exists but is hidden (no window)
     if not terminal.win or not vim.api.nvim_win_is_valid(terminal.win) then
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal hidden - showing with toggle")
       -- Terminal is hidden, show it using snacks toggle
-      local toggle_start_time = vim.loop.hrtime()
       terminal:toggle()
-      local toggle_end_time = vim.loop.hrtime()
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Toggle completed - time:", (toggle_end_time - toggle_start_time) / 1000000, "ms")
       if focus then
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] Focusing shown terminal")
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE terminal:focus() - current_win:", vim.api.nvim_get_current_win())
-        
         -- 使用新的防闪烁系统
         local anti_flicker = require("claudecode.anti_flicker")
         anti_flicker.start_temporary_anti_flicker(200)
         
-        local focus_start_time = vim.loop.hrtime()
         terminal:focus()
-        local focus_end_time = vim.loop.hrtime()
-        
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER terminal:focus() - time:", (focus_end_time - focus_start_time) / 1000000, "ms")
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER terminal:focus() - current_win:", vim.api.nvim_get_current_win())
         
         local term_buf_id = terminal.buf
         if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
           if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
-            logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE startinsert in terminal window")
-            local insert_start_time = vim.loop.hrtime()
             vim.api.nvim_win_call(terminal.win, function()
               vim.cmd("startinsert")
             end)
-            local insert_end_time = vim.loop.hrtime()
-            logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER startinsert - time:", (insert_end_time - insert_start_time) / 1000000, "ms")
           end
         end
       end
     else
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal already visible")
       -- Terminal is already visible
       if focus then
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] Focusing existing visible terminal")
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE terminal:focus() - current_win:", vim.api.nvim_get_current_win())
-        
         -- 使用新的防闪烁系统
         local anti_flicker = require("claudecode.anti_flicker")
         anti_flicker.start_temporary_anti_flicker(200)
         
-        local focus_start_time = vim.loop.hrtime()
         terminal:focus()
-        local focus_end_time = vim.loop.hrtime()
-        
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER terminal:focus() - time:", (focus_end_time - focus_start_time) / 1000000, "ms")
-        logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER terminal:focus() - current_win:", vim.api.nvim_get_current_win())
         
         local term_buf_id = terminal.buf
         if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
           -- Check if window is valid before calling nvim_win_call
           if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
-            logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE startinsert in existing terminal window")
-            local insert_start_time = vim.loop.hrtime()
             vim.api.nvim_win_call(terminal.win, function()
               vim.cmd("startinsert")
             end)
-            local insert_end_time = vim.loop.hrtime()
-            logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER startinsert - time:", (insert_end_time - insert_start_time) / 1000000, "ms")
           end
         end
       end
     end
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] snacks.open COMPLETED (existing terminal)")
     return
   end
 
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] Creating new Snacks terminal")
   local opts = build_opts(config, env_table, focus)
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] BEFORE Snacks.terminal.open - opts:", vim.inspect(opts))
-  local create_start_time = vim.loop.hrtime()
   local term_instance = Snacks.terminal.open(cmd_string, opts)
-  local create_end_time = vim.loop.hrtime()
-  logger.debug("terminal_debug", "[FLICKER_DEBUG] AFTER Snacks.terminal.open - time:", (create_end_time - create_start_time) / 1000000, "ms")
   
   if term_instance and term_instance:buf_valid() then
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal created successfully - buf:", term_instance.buf, "win:", term_instance.win)
-    
     -- 应用额外的防闪烁设置
     if term_instance.buf and vim.api.nvim_buf_is_valid(term_instance.buf) then
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Applying anti-flicker buffer settings")
       vim.api.nvim_buf_set_option(term_instance.buf, "number", false)
       vim.api.nvim_buf_set_option(term_instance.buf, "relativenumber", false)
       vim.api.nvim_buf_set_option(term_instance.buf, "cursorline", false)
@@ -268,7 +212,6 @@ function M.open(cmd_string, env_table, config, focus)
     end
     
     if term_instance.win and vim.api.nvim_win_is_valid(term_instance.win) then
-      logger.debug("terminal_debug", "[FLICKER_DEBUG] Applying anti-flicker window settings")
       vim.api.nvim_win_set_option(term_instance.win, "number", false)
       vim.api.nvim_win_set_option(term_instance.win, "relativenumber", false)
       vim.api.nvim_win_set_option(term_instance.win, "cursorline", false)
@@ -280,10 +223,9 @@ function M.open(cmd_string, env_table, config, focus)
     
     setup_terminal_events(term_instance, config)
     terminal = term_instance
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] snacks.open COMPLETED (new terminal)")
   else
     terminal = nil
-    logger.debug("terminal_debug", "[FLICKER_DEBUG] Terminal creation FAILED")
+    local logger = require("claudecode.logger")
     local error_details = {}
     if not term_instance then
       table.insert(error_details, "Snacks.terminal.open() returned nil")
