@@ -24,6 +24,7 @@ local config = {
   show_native_term_exit_tip = true,
   terminal_cmd = nil,
   auto_close = true,
+  fix_display_corruption = true,
 }
 
 -- Lazy load providers
@@ -117,6 +118,35 @@ local function is_terminal_visible(bufnr)
   return bufinfo and #bufinfo > 0 and #bufinfo[1].windows > 0
 end
 
+--- Applies terminal display corruption fixes
+--- @param bufnr number Terminal buffer number
+--- @param winid number Terminal window ID
+local function apply_display_fixes(bufnr, winid)
+  if not config.fix_display_corruption then
+    return
+  end
+
+  -- Fix for ANSI escape sequence display corruption
+  vim.schedule(function()
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      -- Set reduced scrollback buffer size for better performance
+      vim.api.nvim_buf_set_option(bufnr, "scrollback", 1000)
+      
+      -- Set terminal colors to prevent display corruption without forced redraw
+      vim.api.nvim_buf_call(bufnr, function()
+        -- Remove forced redraw to prevent screen flashing
+        -- vim.cmd("redraw!")  -- REMOVED: This causes screen flash
+        
+        -- Instead, just ensure proper terminal settings
+        vim.opt_local.number = false
+        vim.opt_local.relativenumber = false
+        vim.opt_local.cursorline = false
+        vim.opt_local.signcolumn = "no"
+      end)
+    end
+  end)
+end
+
 --- Gets the claude command string and necessary environment variables
 --- @param cmd_args string|nil Optional arguments to append to the command
 --- @return string cmd_string The command string
@@ -146,6 +176,12 @@ local function get_claude_command_and_env(cmd_args)
 
   if sse_port_value then
     env_table["CLAUDE_CODE_SSE_PORT"] = tostring(sse_port_value)
+  end
+  
+  -- Add environment variables to help with terminal display
+  if config.fix_display_corruption then
+    env_table["TERM"] = "xterm-256color"
+    env_table["COLORTERM"] = "truecolor"
   end
 
   return cmd_string, env_table
@@ -179,6 +215,7 @@ end
 -- @field user_term_config.split_width_percentage number Percentage of screen width (0.0 to 1.0, default: 0.30).
 -- @field user_term_config.provider string 'snacks' or 'native' (default: 'snacks').
 -- @field user_term_config.show_native_term_exit_tip boolean Show tip for exiting native terminal (default: true).
+-- @field user_term_config.fix_display_corruption boolean Fix red flickering and display corruption (default: true).
 -- @param p_terminal_cmd string|nil The command to run in the terminal (from main config).
 function M.setup(user_term_config, p_terminal_cmd)
   if user_term_config == nil then -- Allow nil, default to empty table silently
@@ -210,6 +247,8 @@ function M.setup(user_term_config, p_terminal_cmd)
         config[k] = v
       elseif k == "auto_close" and type(v) == "boolean" then
         config[k] = v
+      elseif k == "fix_display_corruption" and type(v) == "boolean" then
+        config[k] = v
       else
         vim.notify("claudecode.terminal.setup: Invalid value for " .. k .. ": " .. tostring(v), vim.log.levels.WARN)
       end
@@ -226,10 +265,17 @@ end
 -- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.open(opts_override, cmd_args)
+  local logger = require("claudecode.logger")
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.open START - args:", cmd_args)
+  
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
-
+  
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] Calling provider.open - provider:", config.provider)
+  local open_start_time = vim.loop.hrtime()
   get_provider().open(cmd_string, claude_env_table, effective_config)
+  local open_end_time = vim.loop.hrtime()
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.open COMPLETED - time:", (open_end_time - open_start_time) / 1000000, "ms")
 end
 
 --- Closes the managed Claude terminal if it's open and valid.
@@ -241,20 +287,34 @@ end
 -- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.simple_toggle(opts_override, cmd_args)
+  local logger = require("claudecode.logger")
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.simple_toggle START - args:", cmd_args)
+  
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
 
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] Calling provider.simple_toggle - provider:", config.provider)
+  local toggle_start_time = vim.loop.hrtime()
   get_provider().simple_toggle(cmd_string, claude_env_table, effective_config)
+  local toggle_end_time = vim.loop.hrtime()
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.simple_toggle COMPLETED - time:", (toggle_end_time - toggle_start_time) / 1000000, "ms")
 end
 
 --- Smart focus toggle: switches to terminal if not focused, hides if currently focused.
 -- @param opts_override table (optional) Overrides for terminal appearance (split_side, split_width_percentage).
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.focus_toggle(opts_override, cmd_args)
+  local logger = require("claudecode.logger")
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.focus_toggle START - args:", cmd_args)
+  
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
 
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] Calling provider.focus_toggle - provider:", config.provider)
+  local toggle_start_time = vim.loop.hrtime()
   get_provider().focus_toggle(cmd_string, claude_env_table, effective_config)
+  local toggle_end_time = vim.loop.hrtime()
+  logger.debug("terminal_debug", "[FLICKER_DEBUG] M.focus_toggle COMPLETED - time:", (toggle_end_time - toggle_start_time) / 1000000, "ms")
 end
 
 --- Toggle open terminal without focus if not already visible, otherwise do nothing.

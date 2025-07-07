@@ -20,6 +20,40 @@ local level_values = {
 
 local current_log_level_value = M.levels.INFO
 
+-- 指定一个明确的日志文件路径
+local log_file_path = "/tmp/claudecode_debug.log"
+local log_file_handle = nil
+
+-- 初始化日志文件
+local function init_log_file()
+  if not log_file_handle then
+    log_file_handle = io.open(log_file_path, "a")
+    if log_file_handle then
+      log_file_handle:write("\n=== ClaudeCode Debug Session Started at " .. os.date("%Y-%m-%d %H:%M:%S") .. " ===\n")
+      log_file_handle:flush()
+    end
+  end
+end
+
+-- 写入文件日志
+local function write_to_file(level_name, component, message)
+  if not log_file_handle then
+    init_log_file()
+  end
+  
+  if log_file_handle then
+    local timestamp = os.date("%H:%M:%S.000")
+    local prefix = "[" .. timestamp .. "] [ClaudeCode]"
+    if component then
+      prefix = prefix .. " [" .. component .. "]"
+    end
+    prefix = prefix .. " [" .. level_name .. "]"
+    
+    log_file_handle:write(prefix .. " " .. message .. "\n")
+    log_file_handle:flush()
+  end
+end
+
 --- @param plugin_config table The configuration table (e.g., from claudecode.init.state.config).
 function M.setup(plugin_config)
   local conf = plugin_config
@@ -68,6 +102,10 @@ local function log(level, component, message_parts)
     end
   end
 
+  -- 总是写入文件日志
+  write_to_file(level_name, component, message)
+
+  -- 控制台输出 (只对重要级别显示)
   if level == M.levels.ERROR then
     vim.schedule(function()
       vim.notify(prefix .. " " .. message, vim.log.levels.ERROR, { title = "ClaudeCode Error" })
@@ -76,14 +114,13 @@ local function log(level, component, message_parts)
     vim.schedule(function()
       vim.notify(prefix .. " " .. message, vim.log.levels.WARN, { title = "ClaudeCode Warning" })
     end)
-  else
-    -- For INFO, DEBUG, TRACE, use nvim_echo to avoid flooding notifications,
-    -- to make them appear in :messages, and wrap in vim.schedule
-    -- to avoid "nvim_echo must not be called in a fast event context".
+  elseif level == M.levels.INFO then
+    -- INFO 级别也显示在控制台
     vim.schedule(function()
       vim.api.nvim_echo({ { prefix .. " " .. message, "Normal" } }, true, {})
     end)
   end
+  -- DEBUG 和 TRACE 只写入文件，不显示在控制台以避免干扰
 end
 
 --- @param component string|nil Optional component/module name.
@@ -125,6 +162,27 @@ function M.is_level_enabled(level_name)
     return false
   end
   return level_value <= current_log_level_value
+end
+
+--- Get the current log file path
+-- @return string The absolute path to the log file
+function M.get_log_file_path()
+  return log_file_path
+end
+
+--- Clear the log file
+function M.clear_log_file()
+  local file = io.open(log_file_path, "w")
+  if file then
+    file:write("=== ClaudeCode Debug Log Cleared at " .. os.date("%Y-%m-%d %H:%M:%S") .. " ===\n")
+    file:close()
+  end
+  -- 重新初始化文件句柄
+  if log_file_handle then
+    log_file_handle:close()
+    log_file_handle = nil
+  end
+  init_log_file()
 end
 
 --- @param component string|nil Optional component/module name.

@@ -6,6 +6,26 @@ This file provides context for Claude Code when working with this codebase.
 
 claudecode.nvim - A Neovim plugin that implements the same WebSocket-based MCP protocol as Anthropic's official IDE extensions. Built with pure Lua and zero dependencies.
 
+## Tooling for shell interactions (Install if missing)
+
+Is it about finding FILES? use 'fd'
+
+Is it about finding TEXT/strings? use 'rg'
+
+Is it about finding CODE STRUCTURE? use 'ast-grep',You run in an environment where `ast-grep` is available; whenever a search requires syntax-aware or structural matching, default to `ast-grep --lang rust -p '<pattern>'` (or set `--lang` appropriately) and avoid falling back to text-only tools like `rg` or `grep` unless I explicitly request a plain-text search.
+
+Is it about SELECTING from multiple results? pipe to 'fzf'
+
+Is it about interacting with JSON? use 'jq'
+
+Is it about interacting with YAML or XML? use 'yq'
+
+Is it about analyzing LOG PATTERNS? use 'angle-grinder'
+
+Is it about working with CSV/TSV? use 'xsv'
+
+Is it about viewing CODE with syntax? use 'bat'
+
 ## Common Development Commands
 
 ### Testing
@@ -31,6 +51,7 @@ claudecode.nvim - A Neovim plugin that implements the same WebSocket-based MCP p
 - `make help` - Show available commands
 
 **Best Practice**: Always use `make` at the end of editing sessions for complete validation.
+
 ### Development with Nix
 
 - `nix develop` - Enter development shell with all dependencies
