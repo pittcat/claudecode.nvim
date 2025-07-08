@@ -33,6 +33,10 @@ local function handler(params)
     })
   end
 
+  -- Refresh buffers after successful save to ensure all views are synchronized
+  local utils = require("claudecode.utils")
+  utils.refresh_buffers(params.filePath)
+
   return { message = "File saved: " .. params.filePath }
 end
 

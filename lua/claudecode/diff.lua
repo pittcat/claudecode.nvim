@@ -359,51 +359,8 @@ end
 -- @param file_path string Path to the file that was externally modified
 -- @param original_cursor_pos table|nil Original cursor position to restore {row, col}
 local function reload_file_buffers(file_path, original_cursor_pos)
-  logger.debug("diff", "Reloading buffers for file:", file_path, original_cursor_pos and "(restoring cursor)" or "")
-
-  local reloaded_count = 0
-  -- Find and reload any open buffers for this file
-  for _, buf in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.api.nvim_buf_is_valid(buf) then
-      local buf_name = vim.api.nvim_buf_get_name(buf)
-
-      -- Simple string match - if buffer name matches the file path
-      if buf_name == file_path then
-        -- Check if buffer is modified - only reload unmodified buffers for safety
-        local modified = vim.api.nvim_buf_get_option(buf, "modified")
-        logger.debug("diff", "Found matching buffer", buf, "modified:", modified)
-
-        if not modified then
-          -- Try to find a window displaying this buffer for proper context
-          local win_id = nil
-          for _, win in ipairs(vim.api.nvim_list_wins()) do
-            if vim.api.nvim_win_get_buf(win) == buf then
-              win_id = win
-              break
-            end
-          end
-
-          if win_id then
-            vim.api.nvim_win_call(win_id, function()
-              vim.cmd("edit")
-              -- Restore original cursor position if we have it
-              if original_cursor_pos then
-                pcall(vim.api.nvim_win_set_cursor, win_id, original_cursor_pos)
-              end
-            end)
-          else
-            vim.api.nvim_buf_call(buf, function()
-              vim.cmd("edit")
-            end)
-          end
-
-          reloaded_count = reloaded_count + 1
-        end
-      end
-    end
-  end
-
-  logger.debug("diff", "Completed buffer reload - reloaded", reloaded_count, "buffers for file:", file_path)
+  local utils = require("claudecode.utils")
+  utils.refresh_buffers(file_path, original_cursor_pos)
 end
 
 --- Resolve diff as rejected (user closed/rejected)

@@ -328,6 +328,16 @@ function M.register_handlers()
       if result_or_error_table.error then
         return nil, result_or_error_table.error
       elseif result_or_error_table.result then
+        -- Successfully executed tool - trigger buffer refresh to detect any external file changes
+        -- This handles cases where Claude CLI might have modified files outside of the explicit tools
+        vim.schedule(function()
+          local utils = require("claudecode.utils")
+          local success, err = pcall(utils.refresh_buffers)
+          if not success then
+            logger.warn("server", "Failed to refresh buffers after tool execution:", err)
+          end
+        end)
+        
         return result_or_error_table.result, nil
       else
         -- Should not happen if tools.handle_invoke behaves correctly
