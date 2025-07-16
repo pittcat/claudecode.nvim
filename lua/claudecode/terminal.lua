@@ -25,6 +25,7 @@ local config = {
   terminal_cmd = nil,
   auto_close = true,
   fix_display_corruption = true,
+  auto_insert_mode = true, -- 控制切换到终端窗口时是否自动进入 insert 模式
 }
 
 -- Lazy load providers
@@ -216,6 +217,7 @@ end
 -- @field user_term_config.provider string 'snacks' or 'native' (default: 'snacks').
 -- @field user_term_config.show_native_term_exit_tip boolean Show tip for exiting native terminal (default: true).
 -- @field user_term_config.fix_display_corruption boolean Fix red flickering and display corruption (default: true).
+-- @field user_term_config.auto_insert_mode boolean Auto enter insert mode when switching to terminal (default: true).
 -- @param p_terminal_cmd string|nil The command to run in the terminal (from main config).
 function M.setup(user_term_config, p_terminal_cmd)
   if user_term_config == nil then -- Allow nil, default to empty table silently
@@ -248,6 +250,8 @@ function M.setup(user_term_config, p_terminal_cmd)
       elseif k == "auto_close" and type(v) == "boolean" then
         config[k] = v
       elseif k == "fix_display_corruption" and type(v) == "boolean" then
+        config[k] = v
+      elseif k == "auto_insert_mode" and type(v) == "boolean" then
         config[k] = v
       else
         vim.notify("claudecode.terminal.setup: Invalid value for " .. k .. ": " .. tostring(v), vim.log.levels.WARN)

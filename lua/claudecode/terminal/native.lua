@@ -48,12 +48,15 @@ end
 
 local function open_terminal(cmd_string, env_table, effective_config, focus)
   focus = utils.normalize_focus(focus)
+  config = effective_config -- 保存配置以供后续使用
 
   if is_valid() then -- Should not happen if called correctly, but as a safeguard
     if focus then
       -- Focus existing terminal: switch to terminal window and enter insert mode
       vim.api.nvim_set_current_win(winid)
-      vim.cmd("startinsert")
+      if config.auto_insert_mode then
+        vim.cmd("startinsert")
+      end
     end
     -- If focus=false, preserve user context by staying in current window
     return true
@@ -177,7 +180,9 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
   if focus then
     -- Focus the terminal: switch to terminal window and enter insert mode
     vim.api.nvim_set_current_win(winid)
-    vim.cmd("startinsert")
+    if config.auto_insert_mode then
+      vim.cmd("startinsert")
+    end
   else
     -- Preserve user context: return to the window they were in before terminal creation
     vim.api.nvim_set_current_win(original_win)
@@ -204,7 +209,9 @@ end
 local function focus_terminal()
   if is_valid() then
     vim.api.nvim_set_current_win(winid)
-    vim.cmd("startinsert")
+    if config.auto_insert_mode then
+      vim.cmd("startinsert")
+    end
   end
 end
 
@@ -247,6 +254,7 @@ local function show_hidden_terminal(effective_config, focus)
   if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
     return false
   end
+  config = effective_config -- 保存配置以供后续使用
 
   -- Check if it's already visible
   if is_terminal_visible() then
@@ -280,7 +288,9 @@ local function show_hidden_terminal(effective_config, focus)
   if focus then
     -- Focus the terminal: switch to terminal window and enter insert mode
     vim.api.nvim_set_current_win(winid)
-    vim.cmd("startinsert")
+    if config.auto_insert_mode then
+      vim.cmd("startinsert")
+    end
   else
     -- Preserve user context: return to the window they were in before showing terminal
     vim.api.nvim_set_current_win(original_win)

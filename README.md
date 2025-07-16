@@ -157,6 +157,7 @@ For deep technical details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
       split_width_percentage = 0.30,
       provider = "auto", -- "auto", "snacks", or "native"
       auto_close = true,
+      auto_insert_mode = true, -- Auto enter insert mode when switching to terminal
     },
 
     -- Diff Integration

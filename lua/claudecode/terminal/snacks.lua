@@ -6,6 +6,7 @@ local M = {}
 
 local snacks_available, Snacks = pcall(require, "snacks")
 local utils = require("claudecode.utils")
+local logger = require("claudecode.logger")
 local terminal = nil
 
 --- @return boolean
@@ -17,7 +18,6 @@ end
 --- @param term_instance table The Snacks terminal instance
 --- @param config table Configuration options
 local function setup_terminal_events(term_instance, config)
-  local logger = require("claudecode.logger")
 
   -- 事件节流变量
   local last_buf_enter = 0
@@ -101,10 +101,11 @@ end
 --- @return table Snacks terminal options with start_insert/auto_insert controlled by focus parameter
 local function build_opts(config, env_table, focus)
   focus = utils.normalize_focus(focus)
+  local should_auto_insert = focus and config.auto_insert_mode
   return {
     env = env_table,
-    start_insert = focus,
-    auto_insert = focus,
+    start_insert = should_auto_insert,
+    auto_insert = should_auto_insert,
     auto_close = false,
     win = {
       position = config.split_side,
@@ -167,7 +168,7 @@ function M.open(cmd_string, env_table, config, focus)
         terminal:focus()
         
         local term_buf_id = terminal.buf
-        if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
+        if config.auto_insert_mode and term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
           if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
             vim.api.nvim_win_call(terminal.win, function()
               vim.cmd("startinsert")
@@ -223,6 +224,24 @@ function M.open(cmd_string, env_table, config, focus)
     
     setup_terminal_events(term_instance, config)
     terminal = term_instance
+    
+    -- 添加监听器来防止意外进入 insert 模式
+    if not config.auto_insert_mode then
+      local augroup = vim.api.nvim_create_augroup("ClaudeCodeAutoInsertPrevention", { clear = true })
+      vim.api.nvim_create_autocmd({"WinEnter", "BufEnter", "TermEnter"}, {
+        group = augroup,
+        buffer = term_instance.buf,
+        callback = function(event)
+          vim.schedule(function()
+            local mode = vim.api.nvim_get_mode().mode
+            -- 如果进入了 insert 模式但我们不希望这样，强制回到 normal 模式
+            if mode:sub(1, 1) == "i" then
+              vim.cmd("stopinsert")
+            end
+          end)
+        end,
+      })
+    end
   else
     terminal = nil
     local logger = require("claudecode.logger")
@@ -282,8 +301,7 @@ function M.simple_toggle(cmd_string, env_table, config)
     terminal:toggle()
   else
     -- No terminal exists, create new one
-    logger.debug("terminal", "Simple toggle: creating new terminal")
-    M.open(cmd_string, env_table, config)
+    M.open(cmd_string, env_table, config, false)  -- 不自动聚焦
   end
 end
 
@@ -316,7 +334,7 @@ function M.focus_toggle(cmd_string, env_table, config)
     else
       logger.debug("terminal", "Focus toggle: focusing terminal")
       vim.api.nvim_set_current_win(claude_term_neovim_win_id)
-      if terminal.buf and vim.api.nvim_buf_is_valid(terminal.buf) then
+      if config.auto_insert_mode and terminal.buf and vim.api.nvim_buf_is_valid(terminal.buf) then
         if vim.api.nvim_buf_get_option(terminal.buf, "buftype") == "terminal" then
           vim.api.nvim_win_call(claude_term_neovim_win_id, function()
             vim.cmd("startinsert")
