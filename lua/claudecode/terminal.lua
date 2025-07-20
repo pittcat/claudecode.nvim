@@ -23,6 +23,7 @@ local config = {
   provider = "auto",
   show_native_term_exit_tip = true,
   terminal_cmd = nil,
+  bin_path = "claude",
   auto_close = true,
   fix_display_corruption = true,
   auto_insert_mode = true, -- 控制切换到终端窗口时是否自动进入 insert 模式
@@ -132,12 +133,12 @@ local function apply_display_fixes(bufnr, winid)
     if vim.api.nvim_buf_is_valid(bufnr) then
       -- Set reduced scrollback buffer size for better performance
       vim.api.nvim_buf_set_option(bufnr, "scrollback", 1000)
-      
+
       -- Set terminal colors to prevent display corruption without forced redraw
       vim.api.nvim_buf_call(bufnr, function()
         -- Remove forced redraw to prevent screen flashing
         -- vim.cmd("redraw!")  -- REMOVED: This causes screen flash
-        
+
         -- Instead, just ensure proper terminal settings
         vim.opt_local.number = false
         vim.opt_local.relativenumber = false
@@ -157,7 +158,7 @@ local function get_claude_command_and_env(cmd_args)
   local cmd_from_config = config.terminal_cmd
   local base_cmd
   if not cmd_from_config or cmd_from_config == "" then
-    base_cmd = "claude" -- Default if not configured
+    base_cmd = config.bin_path or "claude" -- Use bin_path if terminal_cmd not configured
   else
     base_cmd = cmd_from_config
   end
@@ -178,7 +179,7 @@ local function get_claude_command_and_env(cmd_args)
   if sse_port_value then
     env_table["CLAUDE_CODE_SSE_PORT"] = tostring(sse_port_value)
   end
-  
+
   -- Add environment variables to help with terminal display
   if config.fix_display_corruption then
     env_table["TERM"] = "xterm-256color"
@@ -219,7 +220,8 @@ end
 -- @field user_term_config.fix_display_corruption boolean Fix red flickering and display corruption (default: true).
 -- @field user_term_config.auto_insert_mode boolean Auto enter insert mode when switching to terminal (default: true).
 -- @param p_terminal_cmd string|nil The command to run in the terminal (from main config).
-function M.setup(user_term_config, p_terminal_cmd)
+-- @param p_bin_path string|nil The path to the Claude binary (from main config).
+function M.setup(user_term_config, p_terminal_cmd, p_bin_path)
   if user_term_config == nil then -- Allow nil, default to empty table silently
     user_term_config = {}
   elseif type(user_term_config) ~= "table" then -- Warn if it's not nil AND not a table
@@ -237,8 +239,18 @@ function M.setup(user_term_config, p_terminal_cmd)
     config.terminal_cmd = nil -- Fallback to default behavior
   end
 
+  if p_bin_path == nil or type(p_bin_path) == "string" then
+    config.bin_path = p_bin_path or "claude"
+  else
+    vim.notify(
+      "claudecode.terminal.setup: Invalid bin_path provided: " .. tostring(p_bin_path) .. ". Using default.",
+      vim.log.levels.WARN
+    )
+    config.bin_path = "claude" -- Fallback to default behavior
+  end
+
   for k, v in pairs(user_term_config) do
-    if config[k] ~= nil and k ~= "terminal_cmd" then -- terminal_cmd is handled above
+    if config[k] ~= nil and k ~= "terminal_cmd" and k ~= "bin_path" then -- terminal_cmd and bin_path are handled above
       if k == "split_side" and (v == "left" or v == "right") then
         config[k] = v
       elseif k == "split_width_percentage" and type(v) == "number" and v > 0 and v < 1 then
@@ -256,7 +268,7 @@ function M.setup(user_term_config, p_terminal_cmd)
       else
         vim.notify("claudecode.terminal.setup: Invalid value for " .. k .. ": " .. tostring(v), vim.log.levels.WARN)
       end
-    elseif k ~= "terminal_cmd" then -- Avoid warning for terminal_cmd if passed in user_term_config
+    elseif k ~= "terminal_cmd" and k ~= "bin_path" then -- Avoid warning for terminal_cmd and bin_path if passed in user_term_config
       vim.notify("claudecode.terminal.setup: Unknown configuration key: " .. k, vim.log.levels.WARN)
     end
   end

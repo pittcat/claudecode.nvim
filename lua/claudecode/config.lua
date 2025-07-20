@@ -6,6 +6,7 @@ M.defaults = {
   port_range = { min = 10000, max = 65535 },
   auto_start = true,
   terminal_cmd = nil,
+  bin_path = "claude",
   log_level = "info",
   track_selection = true,
   visual_demotion_delay_ms = 50, -- Milliseconds to wait before demoting a visual selection
@@ -38,6 +39,8 @@ function M.validate(config)
   assert(type(config.auto_start) == "boolean", "auto_start must be a boolean")
 
   assert(config.terminal_cmd == nil or type(config.terminal_cmd) == "string", "terminal_cmd must be nil or a string")
+
+  assert(config.bin_path == nil or type(config.bin_path) == "string", "bin_path must be nil or a string")
 
   local valid_log_levels = { "trace", "debug", "info", "warn", "error" }
   local is_valid_log_level = false

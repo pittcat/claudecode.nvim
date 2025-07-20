@@ -36,6 +36,7 @@ M.version = {
 --- @field port_range {min: integer, max: integer} Port range for WebSocket server.
 --- @field auto_start boolean Auto-start WebSocket server on Neovim startup.
 --- @field terminal_cmd string|nil Custom terminal command to use when launching Claude.
+--- @field bin_path string|nil Path to the Claude binary (defaults to "claude").
 --- @field log_level "trace"|"debug"|"info"|"warn"|"error" Log level.
 --- @field track_selection boolean Enable sending selection updates to Claude.
 --- @field visual_demotion_delay_ms number Milliseconds to wait before demoting a visual selection.
@@ -312,7 +313,7 @@ function M.setup(opts)
     -- Guard in case tests or user replace the module with a minimal stub without `setup`.
     if type(terminal_module.setup) == "function" then
       -- terminal_opts might be nil, which the setup function should handle gracefully.
-      terminal_module.setup(terminal_opts, M.state.config.terminal_cmd)
+      terminal_module.setup(terminal_opts, M.state.config.terminal_cmd, M.state.config.bin_path)
     end
   else
     logger.error("init", "Failed to load claudecode.terminal module for setup.")
@@ -968,9 +969,6 @@ function M._create_commands()
   end, {
     desc = "Deny/reject the current diff changes",
   })
-
-
-
 end
 
 --- Get version information
