@@ -128,6 +128,7 @@ function M._handle_new_connection(server)
 
     if not data then
       -- EOF - client disconnected
+      server.on_disconnect(client, 1006, "Connection lost")
       M._remove_client(server, client)
       return
     end

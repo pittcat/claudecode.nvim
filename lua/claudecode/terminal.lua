@@ -153,7 +153,7 @@ end
 --- @param cmd_args string|nil Optional arguments to append to the command
 --- @return string cmd_string The command string
 --- @return table env_table The environment variables table
-local function get_claude_command_and_env(cmd_args)
+function M.get_claude_command_and_env(cmd_args)
   -- Inline get_claude_command logic
   local cmd_from_config = config.terminal_cmd
   local base_cmd
@@ -167,7 +167,8 @@ local function get_claude_command_and_env(cmd_args)
   if cmd_args and cmd_args ~= "" then
     cmd_string = base_cmd .. " " .. cmd_args
   else
-    cmd_string = base_cmd
+    -- Default to --ide parameter to automatically connect to IDE WebSocket server
+    cmd_string = base_cmd .. " --ide"
   end
 
   local sse_port_value = claudecode_server_module.state.port
@@ -204,7 +205,7 @@ local function ensure_terminal_visible_no_focus(opts_override, cmd_args)
 
   -- Terminal is not visible, open it without focus
   local effective_config = build_config(opts_override)
-  local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
+  local cmd_string, claude_env_table = M.get_claude_command_and_env(cmd_args)
 
   provider.open(cmd_string, claude_env_table, effective_config, false) -- false = don't focus
   return true
@@ -282,7 +283,7 @@ end
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.open(opts_override, cmd_args)
   local effective_config = build_config(opts_override)
-  local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
+  local cmd_string, claude_env_table = M.get_claude_command_and_env(cmd_args)
 
   get_provider().open(cmd_string, claude_env_table, effective_config)
 end
@@ -297,7 +298,7 @@ end
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.simple_toggle(opts_override, cmd_args)
   local effective_config = build_config(opts_override)
-  local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
+  local cmd_string, claude_env_table = M.get_claude_command_and_env(cmd_args)
 
   get_provider().simple_toggle(cmd_string, claude_env_table, effective_config)
 end
@@ -307,7 +308,7 @@ end
 -- @param cmd_args string|nil (optional) Arguments to append to the claude command.
 function M.focus_toggle(opts_override, cmd_args)
   local effective_config = build_config(opts_override)
-  local cmd_string, claude_env_table = get_claude_command_and_env(cmd_args)
+  local cmd_string, claude_env_table = M.get_claude_command_and_env(cmd_args)
 
   get_provider().focus_toggle(cmd_string, claude_env_table, effective_config)
 end

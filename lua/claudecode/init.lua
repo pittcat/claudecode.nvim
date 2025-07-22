@@ -969,6 +969,7 @@ function M._create_commands()
   end, {
     desc = "Deny/reject the current diff changes",
   })
+  
 end
 
 --- Get version information

@@ -90,10 +90,11 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
 
   jobid = vim.fn.termopen(term_cmd_arg, {
     env = env_table,
-    on_exit = function(job_id, _, _)
+    on_exit = function(job_id, exit_code, _)
       vim.schedule(function()
         if job_id == jobid then
           logger.debug("terminal", "Terminal process exited, cleaning up")
+          
 
           -- Ensure we are operating on the correct window and buffer before closing
           local current_winid_for_job = winid

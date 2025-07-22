@@ -89,12 +89,16 @@ That's it! The plugin will auto-configure everything else.
 
 ## Key Commands
 
+### Basic Commands
 - `:ClaudeCode` - Toggle the Claude Code terminal window
 - `:ClaudeCodeFocus` - Smart focus/toggle Claude terminal
 - `:ClaudeCodeSend` - Send current visual selection to Claude
 - `:ClaudeCodeAdd <file-path> [start-line] [end-line]` - Add specific file to Claude context with optional line range
+
+### Diff Commands
 - `:ClaudeCodeDiffAccept` - Accept diff changes
 - `:ClaudeCodeDiffDeny` - Reject diff changes
+
 
 ## Working with Diffs
 
@@ -166,6 +170,7 @@ For deep technical details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
       vertical_split = true,
       open_in_current_tab = true,
     },
+
   },
   keys = {
     -- Your keymaps here
