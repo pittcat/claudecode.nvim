@@ -94,7 +94,6 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
       vim.schedule(function()
         if job_id == jobid then
           logger.debug("terminal", "Terminal process exited, cleaning up")
-          
 
           -- Ensure we are operating on the correct window and buffer before closing
           local current_winid_for_job = winid
@@ -131,26 +130,26 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
   bufnr = vim.api.nvim_get_current_buf()
   vim.bo[bufnr].bufhidden = "wipe" -- Wipe buffer when hidden (e.g., window closed)
   -- buftype=terminal is set by termopen
-  
+
   -- Fix terminal display corruption with reduced scrollback for better performance
-  local scrollback_size = 1000  -- Reduced from 10000 to prevent render lag
+  local scrollback_size = 1000 -- Reduced from 10000 to prevent render lag
   vim.wo[winid].scrollback = scrollback_size
   vim.api.nvim_buf_set_option(bufnr, "scrollback", scrollback_size)
-  
+
   -- Apply minimal display fixes to prevent flickering
   vim.schedule(function()
     if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_win_is_valid(winid) then
       -- Remove the immediate redraw to prevent initial flicker
       -- vim.cmd("redraw!")  -- REMOVED: This causes initial screen flash
-      
+
       -- Set up throttled autocmd to handle display corruption only when needed
       local last_redraw = 0
-      local redraw_throttle = 200  -- Minimum 200ms between redraws
-      
+      local redraw_throttle = 200 -- Minimum 200ms between redraws
+
       vim.api.nvim_create_autocmd("BufEnter", {
         buffer = bufnr,
         callback = function()
-          local now = vim.loop.hrtime() / 1000000  -- Convert to milliseconds
+          local now = vim.loop.hrtime() / 1000000 -- Convert to milliseconds
           if now - last_redraw > redraw_throttle then
             vim.schedule(function()
               if vim.api.nvim_get_current_buf() == bufnr then
@@ -159,12 +158,12 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
                 local lines = vim.api.nvim_buf_get_lines(bufnr, -10, -1, false)
                 local has_corruption = false
                 for _, line in ipairs(lines) do
-                  if line:match("\27%[[") then  -- Check for incomplete ANSI sequences
+                  if line:match("\27%[[") then -- Check for incomplete ANSI sequences
                     has_corruption = true
                     break
                   end
                 end
-                
+
                 if has_corruption then
                   vim.cmd("redraw!")
                   last_redraw = now

@@ -14,9 +14,9 @@ local function apply_anti_flicker_settings()
   if is_anti_flicker_active then
     return -- Already active
   end
-  
+
   logger.debug("anti_flicker", "[ANTI_FLICKER] Activating anti-flicker mode")
-  
+
   -- Store original settings
   original_settings = {
     lazyredraw = vim.o.lazyredraw,
@@ -24,13 +24,13 @@ local function apply_anti_flicker_settings()
     updatetime = vim.o.updatetime,
     timeoutlen = vim.o.timeoutlen,
   }
-  
+
   -- Apply anti-flicker settings
   vim.o.lazyredraw = true
   vim.o.ttyfast = true
-  vim.o.updatetime = 500  -- Increase update time to reduce frequency
-  vim.o.timeoutlen = 800  -- Slightly increase timeout
-  
+  vim.o.updatetime = 500 -- Increase update time to reduce frequency
+  vim.o.timeoutlen = 800 -- Slightly increase timeout
+
   is_anti_flicker_active = true
 end
 
@@ -39,9 +39,9 @@ local function restore_original_settings()
   if not is_anti_flicker_active then
     return -- Not active
   end
-  
+
   logger.debug("anti_flicker", "[ANTI_FLICKER] Restoring original settings")
-  
+
   -- Restore settings
   if original_settings.lazyredraw ~= nil then
     vim.o.lazyredraw = original_settings.lazyredraw
@@ -55,7 +55,7 @@ local function restore_original_settings()
   if original_settings.timeoutlen ~= nil then
     vim.o.timeoutlen = original_settings.timeoutlen
   end
-  
+
   is_anti_flicker_active = false
   original_settings = {}
 end
@@ -64,25 +64,29 @@ end
 --- @param duration_ms number Duration in milliseconds (default: 200)
 function M.start_temporary_anti_flicker(duration_ms)
   duration_ms = duration_ms or 200
-  
+
   apply_anti_flicker_settings()
-  
+
   -- Cancel existing timer if any
   if flicker_prevention_timer then
     flicker_prevention_timer:stop()
     flicker_prevention_timer:close()
     flicker_prevention_timer = nil
   end
-  
+
   -- Set up automatic restoration
   flicker_prevention_timer = vim.loop.new_timer()
-  flicker_prevention_timer:start(duration_ms, 0, vim.schedule_wrap(function()
-    restore_original_settings()
-    if flicker_prevention_timer then
-      flicker_prevention_timer:close()
-      flicker_prevention_timer = nil
-    end
-  end))
+  flicker_prevention_timer:start(
+    duration_ms,
+    0,
+    vim.schedule_wrap(function()
+      restore_original_settings()
+      if flicker_prevention_timer then
+        flicker_prevention_timer:close()
+        flicker_prevention_timer = nil
+      end
+    end)
+  )
 end
 
 --- Manually stop anti-flicker mode
@@ -121,32 +125,52 @@ function M.optimize_terminal_window(win_id, buf_id)
   if not win_id or not vim.api.nvim_win_is_valid(win_id) then
     return
   end
-  
+
   if not buf_id or not vim.api.nvim_buf_is_valid(buf_id) then
     return
   end
-  
+
   -- Apply optimizations in protected calls to avoid errors
   local optimizations = {
     -- Window options
-    function() vim.api.nvim_win_set_option(win_id, "number", false) end,
-    function() vim.api.nvim_win_set_option(win_id, "relativenumber", false) end,
-    function() vim.api.nvim_win_set_option(win_id, "cursorline", false) end,
-    function() vim.api.nvim_win_set_option(win_id, "cursorcolumn", false) end,
-    function() vim.api.nvim_win_set_option(win_id, "signcolumn", "no") end,
-    function() vim.api.nvim_win_set_option(win_id, "foldcolumn", "0") end,
-    function() vim.api.nvim_win_set_option(win_id, "colorcolumn", "") end,
-    
+    function()
+      vim.api.nvim_win_set_option(win_id, "number", false)
+    end,
+    function()
+      vim.api.nvim_win_set_option(win_id, "relativenumber", false)
+    end,
+    function()
+      vim.api.nvim_win_set_option(win_id, "cursorline", false)
+    end,
+    function()
+      vim.api.nvim_win_set_option(win_id, "cursorcolumn", false)
+    end,
+    function()
+      vim.api.nvim_win_set_option(win_id, "signcolumn", "no")
+    end,
+    function()
+      vim.api.nvim_win_set_option(win_id, "foldcolumn", "0")
+    end,
+    function()
+      vim.api.nvim_win_set_option(win_id, "colorcolumn", "")
+    end,
+
     -- Buffer options
-    function() vim.api.nvim_buf_set_option(buf_id, "cursorline", false) end,
-    function() vim.api.nvim_buf_set_option(buf_id, "number", false) end,
-    function() vim.api.nvim_buf_set_option(buf_id, "relativenumber", false) end,
+    function()
+      vim.api.nvim_buf_set_option(buf_id, "cursorline", false)
+    end,
+    function()
+      vim.api.nvim_buf_set_option(buf_id, "number", false)
+    end,
+    function()
+      vim.api.nvim_buf_set_option(buf_id, "relativenumber", false)
+    end,
   }
-  
+
   for _, optimization in ipairs(optimizations) do
     pcall(optimization)
   end
-  
+
   logger.debug("anti_flicker", "[ANTI_FLICKER] Applied terminal window optimizations")
 end
 

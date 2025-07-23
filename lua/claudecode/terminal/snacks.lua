@@ -5,8 +5,8 @@
 local M = {}
 
 local snacks_available, Snacks = pcall(require, "snacks")
-local utils = require("claudecode.utils")
 local logger = require("claudecode.logger")
+local utils = require("claudecode.utils")
 local terminal = nil
 
 --- @return boolean
@@ -18,19 +18,18 @@ end
 --- @param term_instance table The Snacks terminal instance
 --- @param config table Configuration options
 local function setup_terminal_events(term_instance, config)
-
   -- 事件节流变量
   local last_buf_enter = 0
   local last_win_enter = 0
   local last_buf_leave = 0
-  local event_throttle_ms = 100  -- 100ms 内的重复事件将被忽略
+  local event_throttle_ms = 100 -- 100ms 内的重复事件将被忽略
 
   -- 添加节流的事件监听
   term_instance:on("BufEnter", function()
     local now = vim.loop.hrtime() / 1000000
     if now - last_buf_enter > event_throttle_ms then
       last_buf_enter = now
-      
+
       -- 在 BufEnter 时应用防闪烁设置
       vim.schedule(function()
         if term_instance.win and vim.api.nvim_win_is_valid(term_instance.win) then
@@ -42,28 +41,28 @@ local function setup_terminal_events(term_instance, config)
       end)
     end
   end, { buf = true })
-  
+
   term_instance:on("WinEnter", function()
     local now = vim.loop.hrtime() / 1000000
     if now - last_win_enter > event_throttle_ms then
       last_win_enter = now
-      
+
       -- 在窗口进入时启动防闪烁模式
       local anti_flicker = require("claudecode.anti_flicker")
-      
+
       -- 检查是否为快速切换（与上次 BufLeave 的时间间隔）
       local time_since_last_leave = now - last_buf_leave
-      if time_since_last_leave < 500 then  -- 500ms 内的切换视为快速切换
+      if time_since_last_leave < 500 then -- 500ms 内的切换视为快速切换
         anti_flicker.handle_rapid_switching()
       else
         anti_flicker.start_temporary_anti_flicker(150)
       end
-      
+
       -- 优化终端窗口
       anti_flicker.optimize_terminal_window(term_instance.win, term_instance.buf)
     end
   end, { buf = true })
-  
+
   term_instance:on("BufLeave", function()
     local now = vim.loop.hrtime() / 1000000
     if now - last_buf_leave > event_throttle_ms then
@@ -78,7 +77,6 @@ local function setup_terminal_events(term_instance, config)
       if exit_code ~= 0 then
         logger.error("terminal", "Claude exited with code " .. exit_code .. ".\nCheck for any errors.")
       end
-      
 
       -- Clean up
       terminal = nil
@@ -115,12 +113,12 @@ local function build_opts(config, env_table, focus)
       height = 0,
       relative = "editor",
       -- 添加防闪烁的窗口选项
-      style = "minimal",  -- 减少边框渲染
-      border = "none",   -- 无边框减少重绘
+      style = "minimal", -- 减少边框渲染
+      border = "none", -- 无边框减少重绘
     },
     -- Fix terminal display corruption with reduced scrollback for better performance
     bo = {
-      scrollback = 1000,  -- Reduced from 10000 to prevent render lag
+      scrollback = 1000, -- Reduced from 10000 to prevent render lag
       -- 添加防闪烁的缓冲区选项
       modifiable = false,
       readonly = false,
@@ -166,11 +164,15 @@ function M.open(cmd_string, env_table, config, focus)
         -- 使用新的防闪烁系统
         local anti_flicker = require("claudecode.anti_flicker")
         anti_flicker.start_temporary_anti_flicker(200)
-        
+
         terminal:focus()
-        
+
         local term_buf_id = terminal.buf
-        if config.auto_insert_mode and term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
+        if
+          config.auto_insert_mode
+          and term_buf_id
+          and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal"
+        then
           if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
             vim.api.nvim_win_call(terminal.win, function()
               vim.cmd("startinsert")
@@ -184,9 +186,9 @@ function M.open(cmd_string, env_table, config, focus)
         -- 使用新的防闪烁系统
         local anti_flicker = require("claudecode.anti_flicker")
         anti_flicker.start_temporary_anti_flicker(200)
-        
+
         terminal:focus()
-        
+
         local term_buf_id = terminal.buf
         if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
           -- Check if window is valid before calling nvim_win_call
@@ -203,7 +205,7 @@ function M.open(cmd_string, env_table, config, focus)
 
   local opts = build_opts(config, env_table, focus)
   local term_instance = Snacks.terminal.open(cmd_string, opts)
-  
+
   if term_instance and term_instance:buf_valid() then
     -- 应用额外的防闪烁设置
     if term_instance.buf and vim.api.nvim_buf_is_valid(term_instance.buf) then
@@ -213,7 +215,7 @@ function M.open(cmd_string, env_table, config, focus)
       vim.api.nvim_buf_set_option(term_instance.buf, "signcolumn", "no")
       vim.api.nvim_buf_set_option(term_instance.buf, "foldcolumn", "0")
     end
-    
+
     if term_instance.win and vim.api.nvim_win_is_valid(term_instance.win) then
       vim.api.nvim_win_set_option(term_instance.win, "number", false)
       vim.api.nvim_win_set_option(term_instance.win, "relativenumber", false)
@@ -223,14 +225,14 @@ function M.open(cmd_string, env_table, config, focus)
       vim.api.nvim_win_set_option(term_instance.win, "foldcolumn", "0")
       vim.api.nvim_win_set_option(term_instance.win, "colorcolumn", "")
     end
-    
+
     setup_terminal_events(term_instance, config)
     terminal = term_instance
-    
+
     -- 添加监听器来防止意外进入 insert 模式
     if not config.auto_insert_mode then
       local augroup = vim.api.nvim_create_augroup("ClaudeCodeAutoInsertPrevention", { clear = true })
-      vim.api.nvim_create_autocmd({"WinEnter", "BufEnter", "TermEnter"}, {
+      vim.api.nvim_create_autocmd({ "WinEnter", "BufEnter", "TermEnter" }, {
         group = augroup,
         buffer = term_instance.buf,
         callback = function(event)
@@ -303,7 +305,7 @@ function M.simple_toggle(cmd_string, env_table, config)
     terminal:toggle()
   else
     -- No terminal exists, create new one
-    M.open(cmd_string, env_table, config, false)  -- 不自动聚焦
+    M.open(cmd_string, env_table, config, false) -- 不自动聚焦
   end
 end
 

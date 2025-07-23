@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides context for Claude Code when working with this codebase.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -12,7 +12,7 @@ Is it about finding FILES? use 'fd'
 
 Is it about finding TEXT/strings? use 'rg'
 
-Is it about finding CODE STRUCTURE? use 'ast-grep',You run in an environment where `ast-grep` is available; whenever a search requires syntax-aware or structural matching, default to `ast-grep --lang rust -p '<pattern>'` (or set `--lang` appropriately) and avoid falling back to text-only tools like `rg` or `grep` unless I explicitly request a plain-text search.
+Is it about finding CODE STRUCTURE? use 'ast-grep',You run in an environment where `ast-grep` is available; whenever a search requires syntax-aware or structural matching, default to `ast-grep --lang lua -p '<pattern>'` (or set `--lang` appropriately) and avoid falling back to text-only tools like `rg` or `grep` unless I explicitly request a plain-text search.
 
 Is it about SELECTING from multiple results? pipe to 'fzf'
 
@@ -211,6 +211,29 @@ Log levels for authentication events:
 - Plugin requires Neovim >= 0.8.0
 - Uses only Neovim built-ins for WebSocket implementation (vim.loop, vim.json, vim.schedule)
 - Zero external dependencies for core functionality
+- Optional dependency: folke/snacks.nvim for enhanced terminal support
+
+### Key User Commands
+
+- `:ClaudeCode` - Toggle the Claude Code terminal window
+- `:ClaudeCodeFocus` - Smart focus/toggle Claude terminal  
+- `:ClaudeCodeSend` - Send current visual selection to Claude
+- `:ClaudeCodeAdd <file-path> [start-line] [end-line]` - Add specific file to Claude context
+- `:ClaudeCodeStatus` - Check server status and connection info
+- `:ClaudeCodeDiffAccept` - Accept diff changes
+- `:ClaudeCodeDiffDeny` - Reject diff changes
+
+### Configuration Options
+
+Key configuration options available in `require("claudecode").setup({})`:
+
+- `port_range` - WebSocket server port range (default: {min=10000, max=65535})
+- `log_level` - Logging verbosity ("trace", "debug", "info", "warn", "error")
+- `terminal.split_side` - Terminal split direction ("left" or "right")
+- `terminal.provider` - Terminal provider ("auto", "snacks", or "native")
+- `terminal.auto_insert_mode` - Auto enter insert mode when switching to terminal
+- `track_selection` - Enable real-time selection tracking (default: true)
+- `diff_opts.vertical_split` - Use vertical split for diffs (default: true)
 
 ### Security Considerations
 
@@ -228,8 +251,16 @@ Log levels for authentication events:
 ### Integration Support
 
 - Terminal integration supports both snacks.nvim and native Neovim terminal
-- Compatible with popular file explorers (nvim-tree, oil.nvim)
+- Compatible with popular file explorers (nvim-tree, oil.nvim, neo-tree)
 - Visual selection tracking across different selection modes
+
+### Common Troubleshooting
+
+- **Claude not connecting?** Check `:ClaudeCodeStatus` and verify lock file exists in `~/.claude/ide/` 
+- **Authentication issues?** Enable debug logging with `log_level = "debug"` to see token validation
+- **Terminal not opening?** Try switching terminal provider with `terminal.provider = "native"`
+- **Lock file location?** Check both `~/.claude/ide/` and `$CLAUDE_CONFIG_DIR/ide/` if `CLAUDE_CONFIG_DIR` is set
+- **Port conflicts?** Adjust `port_range` in configuration if default ports are occupied
 
 ## Release Process
 

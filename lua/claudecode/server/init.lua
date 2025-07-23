@@ -61,7 +61,6 @@ function M.start(config, auth_token)
       else
         logger.debug("server", "WebSocket client connected (no auth):", client.id)
       end
-      
 
       -- Notify main module about new connection for queue processing
       local main_module = require("claudecode")
@@ -82,11 +81,9 @@ function M.start(config, auth_token)
         ", reason:",
         (reason or "N/A") .. ")"
       )
-      
     end,
     on_error = function(error_msg)
       logger.error("server", "WebSocket server error:", error_msg)
-      
     end,
   }
 
@@ -136,7 +133,6 @@ end
 ---@param client table The client that sent the message
 ---@param message string The JSON-RPC message
 function M._handle_message(client, message)
-  
   local success, parsed = pcall(vim.json.decode, message)
   if not success then
     M.send_response(client, nil, nil, {
@@ -341,7 +337,7 @@ function M.register_handlers()
             logger.warn("server", "Failed to refresh buffers after tool execution:", err)
           end
         end)
-        
+
         return result_or_error_table.result, nil
       else
         -- Should not happen if tools.handle_invoke behaves correctly
@@ -373,8 +369,7 @@ function M.send(client, method, params)
   }
 
   local json_message = vim.json.encode(message)
-  
-  
+
   tcp_server.send_to_client(M.state.server, client.id, json_message)
   return true
 end
@@ -402,8 +397,7 @@ function M.send_response(client, id, result, error_data)
   end
 
   local json_response = vim.json.encode(response)
-  
-  
+
   tcp_server.send_to_client(M.state.server, client.id, json_response)
   return true
 end
@@ -424,8 +418,7 @@ function M.broadcast(method, params)
   }
 
   local json_message = vim.json.encode(message)
-  
-  
+
   tcp_server.broadcast(M.state.server, json_message)
   return true
 end

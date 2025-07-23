@@ -116,7 +116,10 @@ function M.refresh_buffers(file_path, cursor_pos)
   -- Schedule a notification about refreshed buffers
   if refreshed_count > 0 then
     vim.schedule(function()
-      logger.info("utils", "Refreshed " .. refreshed_count .. " buffer(s)" .. (file_path and " for " .. file_path or ""))
+      logger.info(
+        "utils",
+        "Refreshed " .. refreshed_count .. " buffer(s)" .. (file_path and " for " .. file_path or "")
+      )
     end)
   end
 

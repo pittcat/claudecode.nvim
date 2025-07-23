@@ -40,7 +40,7 @@ local function write_to_file(level_name, component, message)
   if not log_file_handle then
     init_log_file()
   end
-  
+
   if log_file_handle then
     local timestamp = os.date("%H:%M:%S.000")
     local prefix = "[" .. timestamp .. "] [ClaudeCode]"
@@ -48,7 +48,7 @@ local function write_to_file(level_name, component, message)
       prefix = prefix .. " [" .. component .. "]"
     end
     prefix = prefix .. " [" .. level_name .. "]"
-    
+
     log_file_handle:write(prefix .. " " .. message .. "\n")
     log_file_handle:flush()
   end
