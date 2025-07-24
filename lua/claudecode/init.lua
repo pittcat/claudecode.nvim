@@ -44,6 +44,7 @@ M.version = {
 --- @field connection_timeout number Maximum time to wait for Claude Code to connect (milliseconds).
 --- @field queue_timeout number Maximum time to keep @ mentions in queue (milliseconds).
 --- @field diff_opts { auto_close_on_accept: boolean, show_diff_stats: boolean, vertical_split: boolean, open_in_current_tab: boolean } Options for the diff provider.
+--- @field monitoring { enabled: boolean, auto_start: boolean, [string]: any } Monitoring system configuration.
 
 --- @type ClaudeCode.Config
 local default_config = {
@@ -62,6 +63,21 @@ local default_config = {
     vertical_split = true,
     open_in_current_tab = false,
   },
+  monitoring = {
+    enabled = false,  -- 默认禁用，用户需要显式启用
+    auto_start = true,  -- 如果启用监控，是否自动启动
+    -- 智能状态分析器配置
+    intelligent_analyzer = {
+      check_interval = 4000,                -- 检查间隔时间（毫秒），多久检查一次状态
+      idle_confirmation_threshold = 3,      -- idle状态确认次数，连续检测到N次才确认为idle
+      executing_confirmation_threshold = 1, -- executing状态确认次数
+      disconnected_confirmation_threshold = 2, -- disconnected状态确认次数  
+      waiting_confirmation_threshold = 1,   -- waiting状态确认次数
+      lines_to_check = 30,                  -- 检查终端末尾行数
+      executing_timeout = 10000,            -- 执行状态超时时间（毫秒）
+    },
+    -- 其他监控配置会传递给监控系统
+  },
 }
 
 --- @class ClaudeCode.State
@@ -72,6 +88,7 @@ local default_config = {
 --- @field initialized boolean Whether the plugin has been initialized.
 --- @field queued_mentions table[] Array of queued @ mentions waiting for connection.
 --- @field connection_timer table|nil Timer for connection timeout.
+--- @field monitoring table|nil The monitoring system instance.
 
 --- @type ClaudeCode.State
 M.state = {
@@ -82,6 +99,7 @@ M.state = {
   initialized = false,
   queued_mentions = {},
   connection_timer = nil,
+  monitoring = nil,
 }
 
 ---@alias ClaudeCode.TerminalOpts { \
@@ -341,6 +359,32 @@ function M.setup(opts)
     desc = "Automatically stop Claude Code integration when exiting Neovim",
   })
 
+  -- 初始化监控系统 (如果启用)
+  if M.state.config.monitoring.enabled then
+    local monitoring_setup_ok, monitoring_module = pcall(require, "claudecode.monitoring.init")
+    if monitoring_setup_ok then
+      -- 提取监控配置并初始化
+      local monitoring_config = vim.deepcopy(M.state.config.monitoring)
+      monitoring_config.enabled = nil  -- 移除enabled字段，不传递给监控系统
+      monitoring_config.auto_start = nil  -- 移除auto_start字段
+      
+      local success = monitoring_module.setup(monitoring_config)
+      if success then
+        M.state.monitoring = monitoring_module
+        logger.info("init", "Claude Code monitoring system initialized")
+        
+        -- 如果auto_start启用且主系统已启动，激活监控适配器
+        if M.state.config.monitoring.auto_start and M.state.server then
+          M._activate_monitoring()
+        end
+      else
+        logger.error("init", "Failed to initialize monitoring system")
+      end
+    else
+      logger.warn("init", "Monitoring system requested but not available: " .. tostring(monitoring_module))
+    end
+  end
+
   M.state.initialized = true
   return M
 end
@@ -431,6 +475,11 @@ function M.start(show_startup_notification)
     selection.enable(M.state.server, M.state.config.visual_demotion_delay_ms)
   end
 
+  -- 激活监控系统 (如果已初始化)
+  if M.state.monitoring and M.state.config.monitoring.auto_start then
+    M._activate_monitoring()
+  end
+
   if show_startup_notification then
     logger.info("init", "Claude Code integration started on port " .. tostring(M.state.port))
   end
@@ -460,6 +509,13 @@ function M.stop()
     selection.disable()
   end
 
+  -- 关闭监控系统 (如果已初始化)
+  if M.state.monitoring then
+    M.state.monitoring.shutdown()
+    M.state.monitoring = nil
+    logger.info("init", "Claude Code monitoring system shutdown")
+  end
+
   local success, error = M.state.server.stop()
 
   if not success then
@@ -477,6 +533,28 @@ function M.stop()
   logger.info("init", "Claude Code integration stopped")
 
   return true
+end
+
+--- 激活监控适配器
+---@private
+function M._activate_monitoring()
+  if not M.state.monitoring then
+    logger.warn("init", "Cannot activate monitoring: monitoring system not initialized")
+    return false
+  end
+
+  local server_module = require("claudecode.server.init")
+  local tools_module = require("claudecode.tools.init")
+  local terminal_module = require("claudecode.terminal")
+
+  local success = M.state.monitoring.activate_monitors(server_module, tools_module, terminal_module)
+  if success then
+    logger.info("init", "Claude Code monitoring adapters activated")
+  else
+    logger.error("init", "Failed to activate monitoring adapters")
+  end
+  
+  return success
 end
 
 --- Set up user commands
@@ -968,6 +1046,86 @@ function M._create_commands()
     diff.deny_current_diff()
   end, {
     desc = "Deny/reject the current diff changes",
+  })
+
+  -- 监控系统相关命令
+  vim.api.nvim_create_user_command("ClaudeCodeMonitoringStatus", function()
+    if M.state.monitoring then
+      local status = M.state.monitoring.get_status()
+      local state_name = status.current_state or "unknown"
+      local state_display = {
+        disconnected = "断开连接",
+        idle = "空闲", 
+        executing = "执行中",
+        completed = "已完成"
+      }
+      print(string.format("Claude Code 监控状态: %s (%s)", state_display[state_name] or state_name, state_name))
+      print(string.format("运行时间: %.1f秒", (status.uptime or 0) / 1000))
+    else
+      print("Claude Code 监控系统未启用")
+    end
+  end, {
+    desc = "显示 Claude Code 监控状态",
+  })
+
+  vim.api.nvim_create_user_command("ClaudeCodeMonitoringStats", function()
+    if M.state.monitoring then
+      local stats = M.state.monitoring.get_detailed_stats()
+      print("=== Claude Code 监控统计 ===")
+      print(vim.inspect(stats))
+    else
+      print("Claude Code 监控系统未启用")
+    end
+  end, {
+    desc = "显示 Claude Code 详细监控统计",
+  })
+
+  vim.api.nvim_create_user_command("ClaudeCodeMonitoringHistory", function()
+    if M.state.monitoring then
+      local history = M.state.monitoring.get_history(10)
+      print("=== Claude Code 状态历史 (最近10条) ===")
+      for i, entry in ipairs(history) do
+        print(string.format("%d. %s -> %s (%.2fms)", 
+          i, entry.from_state, entry.to_state, entry.duration))
+      end
+    else
+      print("Claude Code 监控系统未启用")
+    end
+  end, {
+    desc = "显示 Claude Code 状态变化历史",
+  })
+
+  vim.api.nvim_create_user_command("ClaudeCodeMonitoringHealth", function()
+    if M.state.monitoring then
+      local health = M.state.monitoring.health_check()
+      print("=== Claude Code 监控健康检查 ===")
+      print("整体健康:", health.overall_healthy and "✓ 健康" or "✗ 异常")
+      if #health.issues > 0 then
+        print("问题:")
+        for _, issue in ipairs(health.issues) do
+          print("  - " .. issue)
+        end
+      end
+    else
+      print("Claude Code 监控系统未启用")
+    end
+  end, {
+    desc = "检查 Claude Code 监控系统健康状态",
+  })
+
+  vim.api.nvim_create_user_command("ClaudeCodeMonitoringAnalyzeNow", function()
+    if M.state.monitoring and M.state.monitoring.modules and M.state.monitoring.modules.intelligent_analyzer then
+      local success = M.state.monitoring.modules.intelligent_analyzer.analyze_now()
+      if success then
+        print("智能状态分析已执行，请查看日志了解详情")
+      else
+        print("智能状态分析执行失败，分析器可能未运行")
+      end
+    else
+      print("智能状态分析器未启用")
+    end
+  end, {
+    desc = "手动触发 Claude Code 智能状态分析",
   })
 end
 
