@@ -102,14 +102,13 @@ function M.setup(user_config)
   -- 合并配置
   monitoring_state.config = vim.tbl_deep_extend("force", default_config, user_config or {})
   
-  logger.info("monitoring", "Initializing Claude Code monitoring system...")
+  logger.info("monitoring", "Initializing monitoring system")
   
   -- 初始化核心模块
   local state_manager = get_module("state_manager")
   if state_manager then
     state_manager.update_config(monitoring_state.config.state_manager)
     monitoring_state.modules.state_manager = state_manager
-    logger.debug("monitoring", "State manager initialized")
   else
     logger.error("monitoring", "Failed to initialize state manager")
     return false
@@ -119,7 +118,6 @@ function M.setup(user_config)
   if event_listener then
     event_listener.update_config(monitoring_state.config.event_listener)
     monitoring_state.modules.event_listener = event_listener
-    logger.debug("monitoring", "Event listener initialized")
   else
     logger.error("monitoring", "Failed to initialize event listener")
     return false
@@ -130,7 +128,6 @@ function M.setup(user_config)
     local websocket_monitor = get_module("websocket_monitor")
     if websocket_monitor then
       monitoring_state.modules.websocket_monitor = websocket_monitor
-      logger.debug("monitoring", "WebSocket monitor ready")
     end
   end
   
@@ -138,7 +135,6 @@ function M.setup(user_config)
     local tool_call_monitor = get_module("tool_call_monitor")
     if tool_call_monitor then
       monitoring_state.modules.tool_call_monitor = tool_call_monitor
-      logger.debug("monitoring", "Tool call monitor ready")
     end
   end
   
@@ -146,7 +142,6 @@ function M.setup(user_config)
     local terminal_monitor = get_module("terminal_monitor")
     if terminal_monitor then
       monitoring_state.modules.terminal_monitor = terminal_monitor
-      logger.debug("monitoring", "Terminal monitor ready")
     end
   end
   
@@ -155,7 +150,6 @@ function M.setup(user_config)
     local intelligent_analyzer = get_module("intelligent_state_analyzer")
     if intelligent_analyzer then
       monitoring_state.modules.intelligent_analyzer = intelligent_analyzer
-      logger.debug("monitoring", "Intelligent state analyzer ready")
     end
   end
   
@@ -186,7 +180,6 @@ function M.setup(user_config)
   end
   
   monitoring_state.initialized = true
-  logger.info("monitoring", "Claude Code monitoring system initialized successfully")
   
   -- 触发初始化完成事件
   if event_listener then
@@ -219,7 +212,6 @@ function M.activate_monitors(server_module, tools_module, terminal_module)
     total_monitors = total_monitors + 1
     if monitoring_state.modules.websocket_monitor.setup(server_module) then
       success_count = success_count + 1
-      logger.info("monitoring", "WebSocket monitor activated")
     else
       logger.error("monitoring", "Failed to activate WebSocket monitor")
     end
@@ -230,7 +222,6 @@ function M.activate_monitors(server_module, tools_module, terminal_module)
     total_monitors = total_monitors + 1
     if monitoring_state.modules.tool_call_monitor.setup(tools_module) then
       success_count = success_count + 1
-      logger.info("monitoring", "Tool call monitor activated")
     else
       logger.error("monitoring", "Failed to activate tool call monitor")
     end
@@ -241,7 +232,6 @@ function M.activate_monitors(server_module, tools_module, terminal_module)
     total_monitors = total_monitors + 1
     if monitoring_state.modules.terminal_monitor.setup(terminal_module) then
       success_count = success_count + 1
-      logger.info("monitoring", "Terminal monitor activated")
     else
       logger.error("monitoring", "Failed to activate terminal monitor")
     end
@@ -252,7 +242,6 @@ function M.activate_monitors(server_module, tools_module, terminal_module)
     total_monitors = total_monitors + 1
     if monitoring_state.modules.intelligent_analyzer.start(monitoring_state.config.intelligent_analyzer) then
       success_count = success_count + 1
-      logger.info("monitoring", "Intelligent state analyzer activated")
     else
       logger.error("monitoring", "Failed to activate intelligent state analyzer")
     end
@@ -330,9 +319,9 @@ end
 local function log_terminal_buffer_states()
   local states = get_terminal_buffer_states()
   if #states > 0 then
-    logger.debug("monitoring", string.format("Terminal buffer snapshot: %d active buffers", #states))
+    logger.info("monitoring", "Terminal buffer states:")
     for i, state in ipairs(states) do
-      logger.debug("monitoring", string.format(
+      logger.info("monitoring", string.format(
         "  Buffer %d: id=%d, job_id=%s, running=%s, name=%s",
         i, state.buffer_id, 
         state.job_id or "nil",
@@ -341,7 +330,7 @@ local function log_terminal_buffer_states()
       ))
     end
   else
-    logger.debug("monitoring", "Terminal buffer snapshot: no terminal buffers found")
+    logger.info("monitoring", "No terminal buffers found")
   end
 end
 
@@ -521,7 +510,7 @@ function M.cleanup()
     return
   end
   
-  logger.debug("monitoring", "Running periodic cleanup...")
+  logger.debug("monitoring", "Performing cleanup")
   
   -- 强制垃圾回收
   collectgarbage("collect")
@@ -534,7 +523,6 @@ function M.cleanup()
     })
   end
   
-  logger.debug("monitoring", "Cleanup completed")
 end
 
 --- 重置监控系统
@@ -543,13 +531,12 @@ function M.reset()
     return
   end
   
-  logger.info("monitoring", "Resetting monitoring system...")
+  logger.info("monitoring", "Resetting monitoring system")
   
   -- 重置各个模块
   for module_name, module in pairs(monitoring_state.modules) do
     if module.reset then
       module.reset()
-      logger.debug("monitoring", string.format("Reset %s", module_name))
     end
   end
   
@@ -560,7 +547,6 @@ function M.reset()
     })
   end
   
-  logger.info("monitoring", "Monitoring system reset completed")
 end
 
 --- 关闭监控系统
@@ -569,7 +555,7 @@ function M.shutdown()
     return
   end
   
-  logger.info("monitoring", "Shutting down monitoring system...")
+  logger.info("monitoring", "Shutting down monitoring system")
   
   -- 停止智能状态分析器
   if monitoring_state.modules.intelligent_analyzer then
@@ -602,7 +588,6 @@ function M.shutdown()
   monitoring_state.modules = {}
   lazy_modules = {}
   
-  logger.info("monitoring", "Monitoring system shutdown completed")
 end
 
 --- 更新配置
@@ -622,7 +607,6 @@ function M.update_config(new_config)
     end
   end
   
-  logger.info("monitoring", "Configuration updated")
   return true
 end
 

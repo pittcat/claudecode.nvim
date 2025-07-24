@@ -329,21 +329,18 @@ end
 --- 清空事件历史
 function M.clear_history()
   event_history = {}
-  logger.debug("monitoring", "Event history cleared")
 end
 
 --- 重置事件监听器（清除所有回调和历史）
 function M.reset()
   callbacks = {}
   event_history = {}
-  logger.info("monitoring", "Event listener reset")
 end
 
 --- 更新配置
 --- @param new_config table 新配置
 function M.update_config(new_config)
   config = vim.tbl_deep_extend("force", config, new_config)
-  logger.debug("monitoring", "Event listener config updated")
 end
 
 --- 等待特定事件（Promise风格）

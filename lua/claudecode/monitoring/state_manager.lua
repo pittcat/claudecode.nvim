@@ -82,7 +82,7 @@ local function add_history_entry(old_state, new_state, operation_type, operation
     table.remove(M.state.history, 1)
   end
   
-  logger.debug("monitoring", string.format(
+  logger.info("monitoring", string.format(
     "State history: %s -> %s (%.2fms)", 
     old_state, new_state, duration
   ))
@@ -105,7 +105,7 @@ local function update_metrics(operation_type, duration)
     metrics.last_execution_time = duration
   end
   
-  logger.debug("monitoring", string.format(
+  logger.info("monitoring", string.format(
     "Metrics updated: %s took %.2fms, avg: %.2fms", 
     operation_type, duration, metrics.avg_execution_time
   ))
@@ -143,7 +143,7 @@ end
 function M.set_state(new_state, operation_type, operation_details)
   local old_state = M.state.current
   
-  logger.debug("monitoring", string.format(
+  logger.info("monitoring", string.format(
     "set_state called: %s -> %s (operation: %s)", 
     old_state, new_state, operation_type or "nil"
   ))
@@ -159,7 +159,7 @@ function M.set_state(new_state, operation_type, operation_details)
   
   -- 如果状态没有变化，跳过
   if old_state == new_state then
-    logger.debug("monitoring", string.format(
+    logger.info("monitoring", string.format(
       "State unchanged: %s", old_state
     ))
     return true
@@ -306,14 +306,12 @@ function M.reset()
   -- 移除了completion_timer清理逻辑
   
   M.state = init_state()
-  logger.info("monitoring", "State manager reset")
 end
 
 --- 更新配置
 --- @param config table 新配置
 function M.update_config(config)
   M.state.config = vim.tbl_deep_extend("force", M.state.config, config)
-  logger.debug("monitoring", "State manager config updated")
 end
 
 --- 检查状态是否正常

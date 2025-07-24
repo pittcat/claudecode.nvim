@@ -60,7 +60,7 @@ end
 local function record_terminal_instance(instance_info)
   process_tracking.terminal_instances[instance_info.instance_id] = instance_info
   
-  logger.debug("terminal_monitor", string.format(
+  logger.info("monitoring", string.format(
     "Terminal instance created: %s (provider: %s)",
     instance_info.instance_id, instance_info.provider
   ))
@@ -79,7 +79,7 @@ local function record_process_start(process_info)
   process_tracking.active_processes[process_info.process_id] = process_info
   process_tracking.total_processes = process_tracking.total_processes + 1
   
-  logger.debug("terminal_monitor", string.format(
+  logger.info("monitoring", string.format(
     "Process started: %s (job_id: %d, command: %s)",
     process_info.process_id, process_info.job_id, process_info.command
   ))
@@ -124,7 +124,7 @@ local function record_process_end(process_id, exit_code)
     instance_info.status = exit_code == 0 and "exited" or "error"
   end
   
-  logger.info("terminal_monitor", string.format(
+  logger.info("monitoring", string.format(
     "Process ended: %s (exit_code: %d, duration: %.2fms)",
     process_id, exit_code, process_info.duration
   ))
@@ -154,7 +154,6 @@ local function record_process_end(process_id, exit_code)
     if not has_active_claude then
       -- 没有活跃的Claude进程，可能需要更新连接状态
       -- 这里可以与WebSocket监控协调
-      logger.info("terminal_monitor", "No active Claude processes remaining")
     end
   end
 end
@@ -252,7 +251,7 @@ local function wrap_snacks_open(original_open)
       provider = "snacks"
     })
     
-    logger.debug("terminal_monitor", string.format(
+    logger.debug("monitoring", string.format(
       "Terminal instance created: %s (provider: snacks)", instance_id
     ))
     
@@ -300,7 +299,6 @@ function M.setup(terminal_mod)
   end)) -- 每30秒检查一次
   
   monitoring_setup = true
-  logger.info("terminal_monitor", "Terminal process monitoring setup completed")
   return true
 end
 
@@ -431,7 +429,7 @@ function M.kill_process(process_id)
   
   local success = vim.fn.jobstop(process_info.job_id)
   if success == 1 then
-    logger.info("terminal_monitor", string.format(
+    logger.info("monitoring", string.format(
       "Process killed: %s (job_id: %d)", process_id, process_info.job_id
     ))
     return true
@@ -452,7 +450,6 @@ function M.reset()
     total_processes = 0
   }
   
-  logger.info("terminal_monitor", "Terminal process monitoring data reset")
 end
 
 --- 健康检查

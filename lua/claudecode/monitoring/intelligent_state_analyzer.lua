@@ -106,14 +106,9 @@ local function check_terminal_change(content)
   if has_changed then
     analyzer_state.no_change_count = 0
     analyzer_state.last_terminal_hash = current_hash
-    logger.debug("intelligent_analyzer", "Terminal content changed, reset no_change_count")
     return true
   else
     analyzer_state.no_change_count = analyzer_state.no_change_count + 1
-    logger.debug("intelligent_analyzer", string.format(
-      "Terminal content unchanged, no_change_count: %d", 
-      analyzer_state.no_change_count
-    ))
     return false
   end
 end
@@ -161,10 +156,6 @@ local function get_terminal_content()
           
           content = table.concat(meaningful_lines, "\n")
           found = true
-          logger.debug("intelligent_analyzer", string.format(
-            "Found Claude terminal buffer %d: total_lines=%d, meaningful_lines=%d, checked_lines=%d", 
-            buf, #all_lines, #meaningful_lines, math.min(100, #all_lines)
-          ))
           break
         end
       end
@@ -229,9 +220,6 @@ local function check_interrupted_in_recent_lines(content)
       
       -- 检查是否包含中断标识（支持不间断空格和普通空格）
       if line:match("⎿[%s\194\160]*Interrupted by user") then
-        logger.debug("intelligent_analyzer", string.format(
-          "Found interrupted pattern in line %d: %s", i, line:sub(1, 50)
-        ))
         return true
       end
       
@@ -277,42 +265,25 @@ local function analyze_terminal_content(content)
   -- 检查终端内容变化
   local has_changed = check_terminal_change(content)
   
-  -- 添加调试：显示内容的前200个字符
-  logger.debug("intelligent_analyzer", string.format(
-    "Terminal content preview (first 200 chars): %s", 
-    content:sub(1, 200):gsub("\n", "\\n")
-  ))
-  
   -- 优先级1：disconnected检测（横切所有状态）
   local is_disconnected, disconnect_reason = check_disconnected(content)
   if is_disconnected then
-    logger.debug("intelligent_analyzer", "Detected disconnected state: " .. disconnect_reason)
     return "disconnected", disconnect_reason
   end
   
   -- 优先级2：executing检测（明确的执行状态）
   local is_executing, exec_reason = check_executing(content)
   if is_executing then
-    logger.debug("intelligent_analyzer", "Detected executing state: " .. exec_reason)
     return "executing", exec_reason
   end
   
   -- 优先级3：idle检测（包含interrupted情况，基于内容稳定性）
   local is_idle, idle_reason = check_idle(content, analyzer_state.no_change_count)
   if is_idle then
-    logger.debug("intelligent_analyzer", "Detected idle state: " .. idle_reason)
     return "idle", idle_reason
   end
   
   -- 调试：显示为什么没有匹配到任何明确状态
-  logger.debug("intelligent_analyzer", string.format(
-    "No definitive state detected. Keywords check: 'esc'=%s, 'interrupt'=%s, 'Spinning'=%s, 'tokens'=%s, 'disconnected'=%s",
-    content:match("esc") and "YES" or "NO",
-    content:match("interrupt") and "YES" or "NO", 
-    content:match("Spinning") and "YES" or "NO",
-    content:match("tokens") and "YES" or "NO",
-    content:match("disconnected") and "YES" or "NO"
-  ))
   
   -- 优先级4：等待稳定状态
   return "waiting", string.format("content_changing_count_%d", analyzer_state.no_change_count)
@@ -346,12 +317,6 @@ local function analyze_real_state(terminal_content, backend_info)
   local current_monitoring_state = backend_info.current_state
   local now = vim.loop.hrtime() / 1000000
   
-  logger.debug("intelligent_analyzer", string.format(
-    "State analysis: terminal_state=%s, monitoring_state=%s, no_change_count=%d, reason=%s",
-    terminal_state, current_monitoring_state, 
-    analyzer_state.no_change_count, terminal_reason
-  ))
-  
   -- 新的优先级逻辑：直接使用terminal状态分析结果
   
   -- 优先级1：disconnected（横切状态，最高优先级）
@@ -384,13 +349,11 @@ end
 
 --- 执行智能状态分析
 local function perform_intelligent_analysis()
-  -- 删除调试日志，减少日志文件大小
   local now = vim.loop.hrtime() / 1000000
   
   -- 获取终端内容
   local terminal_content, terminal_found = get_terminal_content()
   if not terminal_found then
-    logger.debug("intelligent_analyzer", "No Claude terminal found")
     return
   end
   
@@ -401,32 +364,11 @@ local function perform_intelligent_analysis()
   local real_state, analysis_reason = analyze_real_state(terminal_content, backend_info)
   local current_state = state_manager.get_current_state()
   
-  -- 完全删除这个日志输出，避免任何版本的代码产生这些日志
-  -- logger.debug("intelligent_analyzer", string.format(
-  --   "Intelligent analysis: real_state=%s, current_state=%s, reason=%s",
-  --   real_state, current_state, analysis_reason
-  -- ))
-  
   -- 如果分析出的真实状态与当前状态不同，进行调整
-  -- 完全删除这个日志输出，避免任何版本的代码产生这些日志
-  -- logger.debug("intelligent_analyzer", string.format(
-  --   "CONDITION CHECK: real_state='%s' ~= current_state='%s' = %s", 
-  --   real_state, current_state, tostring(real_state ~= current_state)
-  -- ))
   
   if real_state ~= current_state then
-    logger.debug("intelligent_analyzer", string.format(
-      "State correction needed: %s -> %s (reason: %s)",
-      current_state, real_state, analysis_reason
-    ))
-    
-    logger.debug("intelligent_analyzer", "ENTERING state correction logic block")
     
     -- 根据真实状态调整监控系统状态
-    logger.debug("intelligent_analyzer", string.format(
-      "Condition check: real_state='%s', current_state='%s'", 
-      real_state, current_state
-    ))
     
     if real_state == "executing" and current_state ~= "executing" then
       state_manager.set_state(
@@ -441,7 +383,6 @@ local function perform_intelligent_analysis()
     elseif real_state == "idle" and current_state == "disconnected" then
       -- 从断开连接转为空闲状态
       -- 先转为已连接状态（如果需要的话）
-      logger.debug("intelligent_analyzer", "Attempting disconnected->idle transition")
       -- 直接设置为 idle 状态
       local success = state_manager.set_state(
         state_manager.States.IDLE,
@@ -453,9 +394,6 @@ local function perform_intelligent_analysis()
           no_change_count = analyzer_state.no_change_count
         }
       )
-      logger.debug("intelligent_analyzer", string.format(
-        "State transition result: %s", success and "SUCCESS" or "FAILED"
-      ))
     elseif real_state == "idle" and current_state == "executing" then
       -- 从执行中直接转为空闲
       state_manager.set_state(
@@ -467,19 +405,12 @@ local function perform_intelligent_analysis()
       -- 检查是否需要发送任务完成通知
       -- 只有在不是中断情况下才发送通知
       if analysis_reason and not analysis_reason:match("interrupted") then
-        logger.debug("intelligent_analyzer", string.format(
-          "Task completed (executing -> idle), sending notification. Reason: %s", analysis_reason
-        ))
         
         -- 发送任务完成通知
         notification.send_task_completion_notification({
           message = "Claude Code 任务已完成",
           include_project = true
         })
-      else
-        logger.debug("intelligent_analyzer", string.format(
-          "Task interrupted (executing -> idle), skipping notification. Reason: %s", analysis_reason or "unknown"
-        ))
       end
     elseif real_state == "interrupted" and current_state ~= "interrupted" then
       -- 检测到用户中断状态
@@ -506,8 +437,6 @@ local function perform_intelligent_analysis()
       )
     -- 移除了completed状态，不再需要此分支
     end
-    
-    logger.debug("intelligent_analyzer", "State correction logic completed")
     
     -- 发送智能分析事件
     event_listener.emit("intelligent_state_correction", {
@@ -583,12 +512,6 @@ function M.start(config)
   
   analyzer_state.enabled = true
   
-  logger.debug("intelligent_analyzer", string.format(
-    "State confirmation thresholds: idle=%d, executing=%d, disconnected=%d, waiting=%d",
-    analyzer_state.idle_confirmation_threshold, analyzer_state.executing_confirmation_threshold,
-    analyzer_state.disconnected_confirmation_threshold, analyzer_state.waiting_confirmation_threshold
-  ))
-  
   return true
 end
 
@@ -609,7 +532,6 @@ function M.stop()
   end
   
   analyzer_state.enabled = false
-  logger.debug("intelligent_analyzer", "Intelligent state analyzer stopped")
   
   return true
 end

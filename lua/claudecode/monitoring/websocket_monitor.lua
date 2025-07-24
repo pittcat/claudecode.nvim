@@ -60,11 +60,6 @@ local function record_activity(activity_type, client_id, details)
   if #connection_tracking.connection_history > 100 then
     table.remove(connection_tracking.connection_history, 1)
   end
-  
-  logger.debug("websocket_monitor", string.format(
-    "Connection activity: %s for client %s",
-    activity_type, client_id
-  ))
 end
 
 --- 包装的连接回调
@@ -87,11 +82,6 @@ local function wrap_connect_callback(original_callback)
       client_info = client_info,
       total_connections = vim.tbl_count(connection_tracking.active_connections)
     })
-    
-    logger.info("websocket_monitor", string.format(
-      "Client connected: %s (total: %d)",
-      client.id, vim.tbl_count(connection_tracking.active_connections)
-    ))
     
     -- 调用原始回调
     if original_callback then
@@ -129,12 +119,6 @@ local function wrap_disconnect_callback(original_callback)
       reason = reason,
       remaining_connections = vim.tbl_count(connection_tracking.active_connections)
     })
-    
-    logger.info("websocket_monitor", string.format(
-      "Client disconnected: %s (code: %s, reason: %s, remaining: %d)",
-      client.id, tostring(code), tostring(reason),
-      vim.tbl_count(connection_tracking.active_connections)
-    ))
     
     -- 调用原始回调
     if original_callback then
@@ -200,11 +184,6 @@ local function wrap_message_callback(original_callback)
         request_id = request_id
       })
     end
-    
-    logger.debug("websocket_monitor", string.format(
-      "Message received: %s from %s (id: %s, size: %d bytes)",
-      method, client.id, tostring(msg_id), #message
-    ))
     
     -- 调用原始回调
     if original_callback then
@@ -319,10 +298,6 @@ function M.setup(server_mod)
               client_info = client_info,
               total_connections = vim.tbl_count(connection_tracking.active_connections)
             })
-            
-            logger.debug("websocket_monitor", string.format(
-              "Client connection detected: %s", client.id
-            ))
           end
           
           -- 包装消息处理逻辑
@@ -336,7 +311,6 @@ function M.setup(server_mod)
   end
   
   monitoring_setup = true
-  logger.info("websocket_monitor", "WebSocket monitoring setup completed")
   return true
 end
 
@@ -405,8 +379,6 @@ function M.reset()
     request_history = {},
     total_messages = 0
   }
-  
-  logger.info("websocket_monitor", "WebSocket monitoring data reset")
 end
 
 --- 健康检查

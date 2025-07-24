@@ -83,20 +83,10 @@ local function wrap_tool_handler(original_handler, tool_name)
     
     -- 检查客户端连接状态并确保监控系统同步
     local current_state = state_manager.get_current_state()
-    logger.debug("tool_call_monitor", string.format(
-      "Tool call debug: tool=%s, client=%s, client.id=%s, current_state=%s", 
-      tool_name,
-      client and "present" or "nil",
-      client and client.id or "nil", 
-      current_state
-    ))
     
     -- 如果当前状态是断开连接但有工具调用，说明有活跃的连接
     if current_state == "disconnected" then
       local client_id = client and client.id or "auto_detected_client"
-      logger.debug("tool_call_monitor", string.format(
-        "Detected tool call in disconnected state, forcing connection state update for client: %s", client_id
-      ))
       
       state_manager.add_client(client_id, {
         id = client_id,
@@ -111,10 +101,6 @@ local function wrap_tool_handler(original_handler, tool_name)
         client_info = { id = client_id, method = "tool_call_detection" },
         total_connections = 1
       })
-      
-      logger.info("tool_call_monitor", string.format(
-        "Client connection auto-detected via tool call: %s", client_id
-      ))
     end
     
     -- 记录工具调用开始
@@ -151,10 +137,6 @@ local function wrap_tool_handler(original_handler, tool_name)
       start_time = start_time
     })
     
-    logger.debug("tool_call_monitor", string.format(
-      "Tool call started: %s (id: %s, client: %s)",
-      tool_name, call_id, call_info.client_id
-    ))
     
     -- 执行原始处理函数
     local success, result = pcall(original_handler, client, params)
@@ -182,10 +164,6 @@ local function wrap_tool_handler(original_handler, tool_name)
         deferred_info = result,
         created_at = end_time
       }
-      
-      logger.debug("tool_call_monitor", string.format(
-        "Tool call deferred: %s (id: %s)", tool_name, call_id
-      ))
       
       -- 延迟响应不立即更新为完成状态，保持执行状态
     else
@@ -229,10 +207,6 @@ local function wrap_tool_handler(original_handler, tool_name)
         end_time = end_time
       })
       
-      logger.debug("tool_call_monitor", string.format(
-        "Tool call completed: %s (id: %s, success: %s, duration: %.2fms)",
-        tool_name, call_id, tostring(success), duration
-      ))
     end
     
     -- 返回原始结果
@@ -304,11 +278,6 @@ local function handle_deferred_completion(deferred_info)
     deferred = true,
     completed_at = completion_time
   })
-  
-  logger.info("tool_call_monitor", string.format(
-    "Deferred tool call completed: %s (id: %s, duration: %.2fms)",
-    deferred_entry.tool_name, call_id, total_duration
-  ))
 end
 
 --- 包装工具调用处理函数
@@ -386,9 +355,6 @@ function M.setup(tools_mod)
       for _ in pairs(_G.claude_deferred_responses) do
         count = count + 1
       end
-      if count > 0 then
-        logger.debug("tool_call_monitor", string.format("Active deferred responses: %d", count))
-      end
     end
   end
   
@@ -397,7 +363,6 @@ function M.setup(tools_mod)
   deferred_check_timer:start(10000, 10000, vim.schedule_wrap(monitor_deferred_responses)) -- 每10秒检查一次
   
   monitoring_setup = true
-  logger.info("tool_call_monitor", "Tool call monitoring setup completed")
   return true
 end
 
@@ -462,8 +427,6 @@ function M.reset()
     active_deferred = {},
     deferred_history = {}
   }
-  
-  logger.info("tool_call_monitor", "Tool call monitoring data reset")
 end
 
 --- 健康检查
