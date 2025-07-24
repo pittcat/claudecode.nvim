@@ -382,16 +382,12 @@ function M.setup(tools_mod)
   -- 监控全局延迟响应表
   local function monitor_deferred_responses()
     if _G.claude_deferred_responses then
-      for response_id, response_info in pairs(_G.claude_deferred_responses) do
-        -- 这里可以添加延迟响应的额外监控逻辑
-        -- 例如检查超时的延迟响应
-        local now = vim.loop.hrtime() / 1000000
-        if response_info.created_at and (now - response_info.created_at) > 60000 then -- 1分钟超时
-          logger.warn("tool_call_monitor", string.format(
-            "Deferred response timeout: %s (age: %.2fs)",
-            response_id, (now - response_info.created_at) / 1000
-          ))
-        end
+      local count = 0
+      for _ in pairs(_G.claude_deferred_responses) do
+        count = count + 1
+      end
+      if count > 0 then
+        logger.debug("tool_call_monitor", string.format("Active deferred responses: %d", count))
       end
     end
   end

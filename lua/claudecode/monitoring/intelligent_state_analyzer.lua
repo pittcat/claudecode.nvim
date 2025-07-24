@@ -9,10 +9,15 @@ local notification = require("claudecode.utils.notification")
 
 local M = {}
 
+-- DEBUG: 添加唯一实例ID
+local instance_id = string.format("MODIFIED_%d_%d", os.time(), math.random(1000, 9999))
+
 --- 分析器状态
 local analyzer_state = {
   enabled = false,
   timer = nil,
+  -- 添加启动计数器来跟踪重复启动
+  start_count = 0,
   
   -- 可配置的检查参数
   check_interval = 4000,       -- 检查间隔时间（毫秒）
@@ -379,6 +384,7 @@ end
 
 --- 执行智能状态分析
 local function perform_intelligent_analysis()
+  -- 删除调试日志，减少日志文件大小
   local now = vim.loop.hrtime() / 1000000
   
   -- 获取终端内容
@@ -395,27 +401,29 @@ local function perform_intelligent_analysis()
   local real_state, analysis_reason = analyze_real_state(terminal_content, backend_info)
   local current_state = state_manager.get_current_state()
   
-  logger.info("intelligent_analyzer", string.format(
-    "Intelligent analysis: real_state=%s, current_state=%s, reason=%s",
-    real_state, current_state, analysis_reason
-  ))
+  -- 完全删除这个日志输出，避免任何版本的代码产生这些日志
+  -- logger.debug("intelligent_analyzer", string.format(
+  --   "Intelligent analysis: real_state=%s, current_state=%s, reason=%s",
+  --   real_state, current_state, analysis_reason
+  -- ))
   
   -- 如果分析出的真实状态与当前状态不同，进行调整
-  logger.info("intelligent_analyzer", string.format(
-    "CONDITION CHECK: real_state='%s' ~= current_state='%s' = %s", 
-    real_state, current_state, tostring(real_state ~= current_state)
-  ))
+  -- 完全删除这个日志输出，避免任何版本的代码产生这些日志
+  -- logger.debug("intelligent_analyzer", string.format(
+  --   "CONDITION CHECK: real_state='%s' ~= current_state='%s' = %s", 
+  --   real_state, current_state, tostring(real_state ~= current_state)
+  -- ))
   
   if real_state ~= current_state then
-    logger.info("intelligent_analyzer", string.format(
+    logger.debug("intelligent_analyzer", string.format(
       "State correction needed: %s -> %s (reason: %s)",
       current_state, real_state, analysis_reason
     ))
     
-    logger.info("intelligent_analyzer", "ENTERING state correction logic block")
+    logger.debug("intelligent_analyzer", "ENTERING state correction logic block")
     
     -- 根据真实状态调整监控系统状态
-    logger.info("intelligent_analyzer", string.format(
+    logger.debug("intelligent_analyzer", string.format(
       "Condition check: real_state='%s', current_state='%s'", 
       real_state, current_state
     ))
@@ -459,7 +467,7 @@ local function perform_intelligent_analysis()
       -- 检查是否需要发送任务完成通知
       -- 只有在不是中断情况下才发送通知
       if analysis_reason and not analysis_reason:match("interrupted") then
-        logger.info("intelligent_analyzer", string.format(
+        logger.debug("intelligent_analyzer", string.format(
           "Task completed (executing -> idle), sending notification. Reason: %s", analysis_reason
         ))
         
@@ -499,7 +507,7 @@ local function perform_intelligent_analysis()
     -- 移除了completed状态，不再需要此分支
     end
     
-    logger.info("intelligent_analyzer", "State correction logic completed")
+    logger.debug("intelligent_analyzer", "State correction logic completed")
     
     -- 发送智能分析事件
     event_listener.emit("intelligent_state_correction", {
@@ -518,9 +526,21 @@ end
 --- 启动智能状态分析器
 --- @param config table|nil 配置选项
 function M.start(config)
+  analyzer_state.start_count = analyzer_state.start_count + 1
   if analyzer_state.enabled then
-    logger.warn("intelligent_analyzer", "Intelligent state analyzer already running")
+    logger.warn("intelligent_analyzer", string.format(
+      "Intelligent state analyzer already running [ID=%s] - start_count=%d", 
+      instance_id, analyzer_state.start_count
+    ))
     return false
+  end
+  
+  -- 强制清理任何遗留的timer
+  if analyzer_state.timer then
+    logger.warn("intelligent_analyzer", "Found existing timer, cleaning up before start")
+    analyzer_state.timer:stop()
+    analyzer_state.timer:close()
+    analyzer_state.timer = nil
   end
   
   config = config or {}
@@ -562,11 +582,6 @@ function M.start(config)
   end))
   
   analyzer_state.enabled = true
-  logger.info("intelligent_analyzer", string.format(
-    "Intelligent state analyzer started (interval: %dms, timeout: %dms, lines: %d, idle_threshold: %d)", 
-    analyzer_state.check_interval, analyzer_state.executing_timeout,
-    analyzer_state.lines_to_check, analyzer_state.idle_confirmation_threshold
-  ))
   
   logger.debug("intelligent_analyzer", string.format(
     "State confirmation thresholds: idle=%d, executing=%d, disconnected=%d, waiting=%d",
@@ -579,18 +594,22 @@ end
 
 --- 停止智能状态分析器
 function M.stop()
+  -- 停止分析器
   if not analyzer_state.enabled then
     return false
   end
   
   if analyzer_state.timer then
+    logger.warn("intelligent_analyzer", "Cleaning up timer during stop")
     analyzer_state.timer:stop()
     analyzer_state.timer:close()
     analyzer_state.timer = nil
+  else
+    logger.warn("intelligent_analyzer", "No timer to clean up during stop")
   end
   
   analyzer_state.enabled = false
-  logger.info("intelligent_analyzer", "Intelligent state analyzer stopped")
+  logger.debug("intelligent_analyzer", "Intelligent state analyzer stopped")
   
   return true
 end

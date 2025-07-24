@@ -60,6 +60,7 @@ function M.setup(plugin_config)
 
   if conf and conf.log_level and level_values[conf.log_level] then
     current_log_level_value = level_values[conf.log_level]
+    -- 日志级别已配置
   else
     vim.notify(
       "ClaudeCode Logger: Invalid or missing log_level in configuration (received: "
@@ -68,6 +69,7 @@ function M.setup(plugin_config)
       vim.log.levels.WARN
     )
     current_log_level_value = M.levels.INFO
+    -- 使用默认日志级别
   end
 end
 
