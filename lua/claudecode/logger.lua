@@ -18,7 +18,7 @@ local level_values = {
   trace = M.levels.TRACE,
 }
 
-local current_log_level_value = M.levels.INFO
+local current_log_level_value = M.levels.WARN  -- 默认使用WARN级别，直到用户配置
 
 -- 指定一个明确的日志文件路径
 local log_file_path = "/tmp/claudecode_debug.log"
@@ -102,7 +102,7 @@ local function log(level, component, message_parts)
     end
   end
 
-  -- 总是写入文件日志
+  -- 只有满足日志级别要求的才写入文件
   write_to_file(level_name, component, message)
 
   -- 控制台输出 (只对重要级别显示)
@@ -205,7 +205,9 @@ function M.trace(component, ...)
   end
 end
 
-local default_config_for_initial_setup = require("claudecode.config").defaults
-M.setup(default_config_for_initial_setup)
+-- 不自动初始化，等待用户配置
+-- 如果在 setup() 调用前使用了 logger，使用保守的默认级别
+-- local default_config_for_initial_setup = require("claudecode.config").defaults
+-- M.setup(default_config_for_initial_setup)
 
 return M

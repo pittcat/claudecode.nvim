@@ -117,10 +117,10 @@ end
 --- @return boolean valid 是否为有效转换
 local function is_valid_transition(from_state, to_state)
   local valid_transitions = {
-    [M.States.DISCONNECTED] = { M.States.IDLE },
-    [M.States.IDLE] = { M.States.EXECUTING, M.States.DISCONNECTED, M.States.INTERRUPTED },
-    [M.States.EXECUTING] = { M.States.IDLE, M.States.DISCONNECTED, M.States.INTERRUPTED },
-    [M.States.INTERRUPTED] = { M.States.IDLE, M.States.EXECUTING, M.States.DISCONNECTED }
+    [M.States.DISCONNECTED] = { M.States.IDLE, M.States.DISCONNECTED },
+    [M.States.IDLE] = { M.States.EXECUTING, M.States.DISCONNECTED, M.States.INTERRUPTED, M.States.IDLE },
+    [M.States.EXECUTING] = { M.States.IDLE, M.States.DISCONNECTED, M.States.INTERRUPTED, M.States.EXECUTING },
+    [M.States.INTERRUPTED] = { M.States.IDLE, M.States.EXECUTING, M.States.DISCONNECTED, M.States.INTERRUPTED }
   }
   
   local allowed = valid_transitions[from_state] or {}
