@@ -5,6 +5,7 @@
 local logger = require("claudecode.logger")
 local state_manager = require("claudecode.monitoring.state_manager")
 local event_listener = require("claudecode.monitoring.event_listener")
+local notification = require("claudecode.utils.notification")
 
 local M = {}
 
@@ -454,6 +455,24 @@ local function perform_intelligent_analysis()
         "intelligent_analysis",
         { analysis_reason = analysis_reason }
       )
+      
+      -- 检查是否需要发送任务完成通知
+      -- 只有在不是中断情况下才发送通知
+      if analysis_reason and not analysis_reason:match("interrupted") then
+        logger.info("intelligent_analyzer", string.format(
+          "Task completed (executing -> idle), sending notification. Reason: %s", analysis_reason
+        ))
+        
+        -- 发送任务完成通知
+        notification.send_task_completion_notification({
+          message = "Claude Code 任务已完成",
+          include_project = true
+        })
+      else
+        logger.debug("intelligent_analyzer", string.format(
+          "Task interrupted (executing -> idle), skipping notification. Reason: %s", analysis_reason or "unknown"
+        ))
+      end
     elseif real_state == "interrupted" and current_state ~= "interrupted" then
       -- 检测到用户中断状态
       state_manager.set_state(

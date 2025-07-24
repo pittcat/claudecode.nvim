@@ -340,6 +340,10 @@ function M.setup(opts)
   local diff = require("claudecode.diff")
   diff.setup(M.state.config)
 
+  -- Setup notification module
+  local notification = require("claudecode.utils.notification")
+  notification.setup(M.state.config.notification)
+
   if M.state.config.auto_start then
     M.start(false) -- Suppress notification on auto-start
   end

@@ -19,6 +19,12 @@ M.defaults = {
     vertical_split = true,
     open_in_current_tab = true, -- Use current tab instead of creating new tab
   },
+  notification = {
+    enabled = true,
+    sound = "Glass",
+    include_project_path = true,
+    title_prefix = "Claude Code",
+  },
 }
 
 --- Validates the provided configuration table.
@@ -76,6 +82,12 @@ function M.validate(config)
   assert(type(config.diff_opts.show_diff_stats) == "boolean", "diff_opts.show_diff_stats must be a boolean")
   assert(type(config.diff_opts.vertical_split) == "boolean", "diff_opts.vertical_split must be a boolean")
   assert(type(config.diff_opts.open_in_current_tab) == "boolean", "diff_opts.open_in_current_tab must be a boolean")
+
+  assert(type(config.notification) == "table", "notification must be a table")
+  assert(type(config.notification.enabled) == "boolean", "notification.enabled must be a boolean")
+  assert(type(config.notification.sound) == "string", "notification.sound must be a string")
+  assert(type(config.notification.include_project_path) == "boolean", "notification.include_project_path must be a boolean")
+  assert(type(config.notification.title_prefix) == "string", "notification.title_prefix must be a string")
 
   return true
 end
