@@ -321,21 +321,8 @@ function M.check_process_health()
     end
   end
   
-  -- 检查僵尸终端实例
-  for instance_id, instance_info in pairs(process_tracking.terminal_instances) do
-    if instance_info.status == "active" then
-      local age = now - instance_info.created_at
-      if age > 7200000 then -- 2小时
-        table.insert(issues, {
-          type = "stale_terminal_instance", 
-          instance_id = instance_id,
-          age = age,
-          message = string.format("终端实例长时间未活动: %s (%.2f小时)",
-            instance_id, age / 3600000)
-        })
-      end
-    end
-  end
+  -- 检查僵尸终端实例 (已禁用长时间未活动警告)
+  -- 终端可能会长时间保持连接状态，这是正常的，不需要发出警告
   
   -- 如果有问题，记录并触发事件
   if #issues > 0 then
