@@ -311,6 +311,10 @@ local function wrap_handle_invoke(original_handle_invoke)
         
         return deferred_result
       end)
+      
+      -- 关键修复：存储原始协程的映射，让 diff.lua 能找到响应发送器
+      -- 这样既保持监控功能，又解决协程身份匹配问题
+      result._original_coroutine = original_coroutine
     end
     
     return result

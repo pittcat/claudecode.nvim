@@ -189,6 +189,7 @@ function M._handle_request(client, request)
         coroutine = result.coroutine,
         method = method,
         params = result.params,
+        _original_coroutine = result._original_coroutine, -- 关键修复：传递原始协程字段
       }
       -- Set up the completion callback
       M._setup_deferred_response(deferred_info)
@@ -250,6 +251,13 @@ function M._setup_deferred_response(deferred_info)
     _G.claude_deferred_responses = {}
   end
   _G.claude_deferred_responses[tostring(co)] = response_sender
+
+  -- 关键修复：如果存在原始协程（来自监控系统的包装），也为原始协程存储响应发送器
+  -- 这样 diff.lua 中的回调函数就能找到对应的响应发送器了
+  if deferred_info._original_coroutine then
+    local original_co_key = tostring(deferred_info._original_coroutine)
+    _G.claude_deferred_responses[original_co_key] = response_sender
+  end
 
   logger.debug("server", "Stored response sender in global table for coroutine:", tostring(co))
 end
