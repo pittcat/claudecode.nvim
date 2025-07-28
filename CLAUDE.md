@@ -443,6 +443,20 @@ error({
 4. **MCP Validation** - Tools return proper format structure
 5. **Integration Test** - End-to-end protocol flow verification
 
+## Branch-Specific Features Protection
+
+### add-unsafe-command Branch Features
+
+**IMPORTANT**: When merging from main branch, the following features MUST be preserved:
+
+1. **Monitoring System** - All `ClaudeCodeMonitoring*` commands and related modules
+2. **Notification System** - macOS notification support with `notification` config
+3. **Anti-Flicker Optimizations** - `fix_display_corruption` and related terminal settings
+4. **Special Commands** - `ClaudeCodeUnsafe` and `ClaudeCodeContinue` commands
+5. **Buffer Refresh** - `utils.refresh_buffers` in save_document tool
+
+**Merge Strategy**: Always use `git merge --no-commit main` and manually resolve conflicts to preserve all existing functionality. See `BRANCH_FEATURES.md` for detailed merge instructions.
+
 ## Development Troubleshooting
 
 ### Common Issues
