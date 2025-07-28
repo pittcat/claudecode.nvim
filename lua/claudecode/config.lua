@@ -25,6 +25,10 @@ M.defaults = {
     include_project_path = true,
     title_prefix = "Claude Code",
   },
+  models = {
+    { name = "Claude Opus 4 (Latest)", value = "opus" },
+    { name = "Claude Sonnet 4 (Latest)", value = "sonnet" },
+  },
 }
 
 --- Validates the provided configuration table.
@@ -88,6 +92,16 @@ function M.validate(config)
   assert(type(config.notification.sound) == "string", "notification.sound must be a string")
   assert(type(config.notification.include_project_path) == "boolean", "notification.include_project_path must be a boolean")
   assert(type(config.notification.title_prefix) == "string", "notification.title_prefix must be a string")
+
+  -- Validate models
+  assert(type(config.models) == "table", "models must be a table")
+  assert(#config.models > 0, "models must not be empty")
+
+  for i, model in ipairs(config.models) do
+    assert(type(model) == "table", "models[" .. i .. "] must be a table")
+    assert(type(model.name) == "string" and model.name ~= "", "models[" .. i .. "].name must be a non-empty string")
+    assert(type(model.value) == "string" and model.value ~= "", "models[" .. i .. "].value must be a non-empty string")
+  end
 
   return true
 end

@@ -107,7 +107,7 @@ local function build_opts(config, env_table, focus)
     start_insert = should_auto_insert,
     auto_insert = should_auto_insert,
     auto_close = false,
-    win = {
+    win = vim.tbl_deep_extend("force", {
       position = config.split_side,
       width = config.split_width_percentage,
       height = 0,
@@ -115,7 +115,7 @@ local function build_opts(config, env_table, focus)
       -- 添加防闪烁的窗口选项
       style = "minimal", -- 减少边框渲染
       border = "none", -- 无边框减少重绘
-    },
+    }, config.snacks_win_opts or {}),
     -- Fix terminal display corruption with reduced scrollback for better performance
     bo = {
       scrollback = 1000, -- Reduced from 10000 to prevent render lag
@@ -295,11 +295,11 @@ function M.simple_toggle(cmd_string, env_table, config)
   local logger = require("claudecode.logger")
 
   -- Check if terminal exists and is visible
-  if terminal and terminal:buf_valid() and terminal.win then
+  if terminal and terminal:buf_valid() and terminal:win_valid() then
     -- Terminal is visible, hide it
     logger.debug("terminal", "Simple toggle: hiding visible terminal")
     terminal:toggle()
-  elseif terminal and terminal:buf_valid() and not terminal.win then
+  elseif terminal and terminal:buf_valid() and not terminal:win_valid() then
     -- Terminal exists but not visible, show it
     logger.debug("terminal", "Simple toggle: showing hidden terminal")
     terminal:toggle()
@@ -322,11 +322,11 @@ function M.focus_toggle(cmd_string, env_table, config)
   local logger = require("claudecode.logger")
 
   -- Terminal exists, is valid, but not visible
-  if terminal and terminal:buf_valid() and not terminal.win then
+  if terminal and terminal:buf_valid() and not terminal:win_valid() then
     logger.debug("terminal", "Focus toggle: showing hidden terminal")
     terminal:toggle()
   -- Terminal exists, is valid, and is visible
-  elseif terminal and terminal:buf_valid() and terminal.win then
+  elseif terminal and terminal:buf_valid() and terminal:win_valid() then
     local claude_term_neovim_win_id = terminal.win
     local current_neovim_win_id = vim.api.nvim_get_current_win()
 

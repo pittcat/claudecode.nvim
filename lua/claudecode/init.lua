@@ -106,7 +106,8 @@ M.state = {
 ---  split_side?: "left"|"right", \
 ---  split_width_percentage?: number, \
 ---  provider?: "auto"|"snacks"|"native", \
----  show_native_term_exit_tip?: boolean }
+---  show_native_term_exit_tip?: boolean, \
+---  snacks_win_opts?: table }
 ---
 ---@alias ClaudeCode.SetupOpts { \
 ---  terminal?: ClaudeCode.TerminalOpts }
@@ -1131,6 +1132,43 @@ function M._create_commands()
   end, {
     desc = "手动触发 Claude Code 智能状态分析",
   })
+
+  vim.api.nvim_create_user_command("ClaudeCodeSelectModel", function(opts)
+    local cmd_args = opts.args and opts.args ~= "" and opts.args or nil
+    M.open_with_model(cmd_args)
+  end, {
+    nargs = "*",
+    desc = "Select and open Claude terminal with chosen model and optional arguments",
+  })
+end
+
+M.open_with_model = function(additional_args)
+  local models = M.state.config.models
+
+  if not models or #models == 0 then
+    logger.error("command", "No models configured for selection")
+    return
+  end
+
+  vim.ui.select(models, {
+    prompt = "Select Claude model:",
+    format_item = function(item)
+      return item.name
+    end,
+  }, function(choice)
+    if not choice then
+      return -- User cancelled
+    end
+
+    if not choice.value or type(choice.value) ~= "string" then
+      logger.error("command", "Invalid model value selected")
+      return
+    end
+
+    local model_arg = "--model " .. choice.value
+    local final_args = additional_args and (model_arg .. " " .. additional_args) or model_arg
+    vim.cmd("ClaudeCode " .. final_args)
+  end)
 end
 
 --- Get version information

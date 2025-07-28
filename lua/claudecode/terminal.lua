@@ -27,6 +27,7 @@ local config = {
   auto_close = true,
   fix_display_corruption = true,
   auto_insert_mode = true, -- 控制切换到终端窗口时是否自动进入 insert 模式
+  snacks_win_opts = {},
 }
 
 -- Lazy load providers
@@ -94,6 +95,9 @@ local function build_config(opts_override)
       split_width_percentage = function(val)
         return type(val) == "number" and val > 0 and val < 1
       end,
+      snacks_win_opts = function(val)
+        return type(val) == "table"
+      end,
     }
     for key, val in pairs(opts_override) do
       if effective_config[key] ~= nil and validators[key] and validators[key](val) then
@@ -105,6 +109,7 @@ local function build_config(opts_override)
     split_side = effective_config.split_side,
     split_width_percentage = effective_config.split_width_percentage,
     auto_close = effective_config.auto_close,
+    snacks_win_opts = effective_config.snacks_win_opts,
   }
 end
 
@@ -220,6 +225,7 @@ end
 -- @field user_term_config.show_native_term_exit_tip boolean Show tip for exiting native terminal (default: true).
 -- @field user_term_config.fix_display_corruption boolean Fix red flickering and display corruption (default: true).
 -- @field user_term_config.auto_insert_mode boolean Auto enter insert mode when switching to terminal (default: true).
+-- @field user_term_config.snacks_win_opts table Opts to pass to `Snacks.terminal.open()` (default: {}).
 -- @param p_terminal_cmd string|nil The command to run in the terminal (from main config).
 -- @param p_bin_path string|nil The path to the Claude binary (from main config).
 function M.setup(user_term_config, p_terminal_cmd, p_bin_path)
@@ -265,6 +271,8 @@ function M.setup(user_term_config, p_terminal_cmd, p_bin_path)
       elseif k == "fix_display_corruption" and type(v) == "boolean" then
         config[k] = v
       elseif k == "auto_insert_mode" and type(v) == "boolean" then
+        config[k] = v
+      elseif k == "snacks_win_opts" and type(v) == "table" then
         config[k] = v
       else
         vim.notify("claudecode.terminal.setup: Invalid value for " .. k .. ": " .. tostring(v), vim.log.levels.WARN)
