@@ -29,6 +29,20 @@ M.defaults = {
     { name = "Claude Opus 4 (Latest)", value = "opus" },
     { name = "Claude Sonnet 4 (Latest)", value = "sonnet" },
   },
+  flicker_detection = {
+    enabled = false, -- Flicker detection disabled by default
+    auto_start = false, -- Auto-start detection when entering terminal
+    thresholds = {
+      rapid_mode_changes = 6, -- Mode changes per second indicating flicker (平衡精度)
+      excessive_redraws = 12, -- Redraws per second indicating flicker (平衡精度)
+      flicker_window = 1.5, -- Time window in seconds for flicker detection (适中窗口)
+      debounce_interval = 30, -- Milliseconds to debounce cursor events (减少去抖动延迟)
+      terminal_mode_sequence_threshold = 2, -- n→nt→t 序列阈值 (降低)
+      window_event_burst_threshold = 6, -- 窗口事件突发阈值 (提高)
+      burst_time_window = 0.3, -- 突发事件检测窗口（300ms，缩短）
+    },
+    auto_fix = false, -- Automatically apply fixes when flicker is detected
+  },
 }
 
 --- Validates the provided configuration table.
@@ -102,6 +116,21 @@ function M.validate(config)
     assert(type(model.name) == "string" and model.name ~= "", "models[" .. i .. "].name must be a non-empty string")
     assert(type(model.value) == "string" and model.value ~= "", "models[" .. i .. "].value must be a non-empty string")
   end
+
+  -- Validate flicker_detection
+  assert(type(config.flicker_detection) == "table", "flicker_detection must be a table")
+  assert(type(config.flicker_detection.enabled) == "boolean", "flicker_detection.enabled must be a boolean")
+  assert(type(config.flicker_detection.auto_start) == "boolean", "flicker_detection.auto_start must be a boolean")
+  assert(type(config.flicker_detection.auto_fix) == "boolean", "flicker_detection.auto_fix must be a boolean")
+  
+  assert(type(config.flicker_detection.thresholds) == "table", "flicker_detection.thresholds must be a table")
+  assert(type(config.flicker_detection.thresholds.rapid_mode_changes) == "number" and config.flicker_detection.thresholds.rapid_mode_changes > 0, "flicker_detection.thresholds.rapid_mode_changes must be a positive number")
+  assert(type(config.flicker_detection.thresholds.excessive_redraws) == "number" and config.flicker_detection.thresholds.excessive_redraws > 0, "flicker_detection.thresholds.excessive_redraws must be a positive number")
+  assert(type(config.flicker_detection.thresholds.flicker_window) == "number" and config.flicker_detection.thresholds.flicker_window > 0, "flicker_detection.thresholds.flicker_window must be a positive number")
+  assert(type(config.flicker_detection.thresholds.debounce_interval) == "number" and config.flicker_detection.thresholds.debounce_interval >= 0, "flicker_detection.thresholds.debounce_interval must be a non-negative number")
+  assert(type(config.flicker_detection.thresholds.terminal_mode_sequence_threshold) == "number" and config.flicker_detection.thresholds.terminal_mode_sequence_threshold > 0, "flicker_detection.thresholds.terminal_mode_sequence_threshold must be a positive number")
+  assert(type(config.flicker_detection.thresholds.window_event_burst_threshold) == "number" and config.flicker_detection.thresholds.window_event_burst_threshold > 0, "flicker_detection.thresholds.window_event_burst_threshold must be a positive number")
+  assert(type(config.flicker_detection.thresholds.burst_time_window) == "number" and config.flicker_detection.thresholds.burst_time_window > 0, "flicker_detection.thresholds.burst_time_window must be a positive number")
 
   return true
 end
