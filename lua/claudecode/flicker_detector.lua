@@ -429,21 +429,21 @@ function M.detect_terminal_initialization_flicker()
   
   -- 多条件综合判断（更严格的条件组合）
   local conditions_met = 0
-  local total_conditions = 5
+  local total_conditions = 4  -- 减少到4个条件，去除anti_flicker_active
   
   if has_sufficient_window_events then conditions_met = conditions_met + 1 end
   if has_terminal_mode_change then conditions_met = conditions_met + 1 end
   if has_repetitive_pattern then conditions_met = conditions_met + 1 end
-  if anti_flicker_active then conditions_met = conditions_met + 1 end
   if has_concentrated_timing then conditions_met = conditions_met + 1 end
   
-  -- 需要满足至少4/5个条件才认为是真正的闪烁
-  local is_likely_flicker = conditions_met >= 4
+  -- 需要满足至少3/4个条件才认为是真正的闪烁
+  -- 但如果anti-flicker已经激活，说明系统正在处理，不应该报告为flicker
+  local is_likely_flicker = (conditions_met >= 3) and not anti_flicker_active
   
   -- 详细日志记录用于调试
   if has_sufficient_window_events then
     logger.debug("flicker_detector", "Flicker analysis:", 
-      string.format("WindowEvents=%d, ModeChange=%s, Repetitive=%s, AntiFlicker=%s, Concentrated=%s, Score=%d/5",
+      string.format("WindowEvents=%d, ModeChange=%s, Repetitive=%s, AntiFlicker=%s, Concentrated=%s, Score=%d/4",
         #recent_window_events, 
         tostring(has_terminal_mode_change),
         tostring(has_repetitive_pattern),

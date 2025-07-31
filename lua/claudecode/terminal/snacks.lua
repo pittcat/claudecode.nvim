@@ -47,19 +47,44 @@ local function setup_terminal_events(term_instance, config)
     if now - last_win_enter > event_throttle_ms then
       last_win_enter = now
 
+      -- 详细记录窗口进入事件，这是flicker的主要触发点
+      local current_buf = vim.api.nvim_get_current_buf()
+      local current_mode = vim.api.nvim_get_mode().mode
+      logger.debug("terminal", string.format(
+        "[FLICKER_TRACE] WinEnter triggered - buf:%d win:%s mode:%s time_since_leave:%.1fms",
+        current_buf, 
+        tostring(term_instance.win),
+        current_mode,
+        now - last_buf_leave
+      ))
+
       -- 在窗口进入时启动防闪烁模式
       local anti_flicker = require("claudecode.anti_flicker")
 
       -- 检查是否为快速切换（与上次 BufLeave 的时间间隔）
       local time_since_last_leave = now - last_buf_leave
       if time_since_last_leave < 500 then -- 500ms 内的切换视为快速切换
+        logger.debug("terminal", string.format(
+          "[FLICKER_TRACE] Rapid switching detected (%.1fms) - applying rapid switching anti-flicker",
+          time_since_last_leave
+        ))
         anti_flicker.handle_rapid_switching()
       else
+        logger.debug("terminal", string.format(
+          "[FLICKER_TRACE] Normal window switch (%.1fms) - applying standard anti-flicker (150ms)",
+          time_since_last_leave
+        ))
         anti_flicker.start_temporary_anti_flicker(150)
       end
 
       -- 优化终端窗口
       anti_flicker.optimize_terminal_window(term_instance.win, term_instance.buf)
+      logger.debug("terminal", "[FLICKER_TRACE] Terminal window optimizations applied")
+    else
+      logger.trace("terminal", string.format(
+        "[FLICKER_TRACE] WinEnter throttled (%.1fms since last)",
+        now - last_win_enter
+      ))
     end
   end, { buf = true })
 
@@ -67,6 +92,21 @@ local function setup_terminal_events(term_instance, config)
     local now = vim.loop.hrtime() / 1000000
     if now - last_buf_leave > event_throttle_ms then
       last_buf_leave = now
+      
+      -- 记录BufLeave事件，这是快速切换检测的关键
+      local current_buf = vim.api.nvim_get_current_buf()
+      local current_mode = vim.api.nvim_get_mode().mode
+      logger.debug("terminal", string.format(
+        "[FLICKER_TRACE] BufLeave triggered - buf:%d mode:%s timestamp:%.1fms",
+        current_buf,
+        current_mode,
+        now
+      ))
+    else
+      logger.trace("terminal", string.format(
+        "[FLICKER_TRACE] BufLeave throttled (%.1fms since last)",
+        now - last_buf_leave
+      ))
     end
   end, { buf = true })
 
@@ -159,12 +199,15 @@ function M.open(cmd_string, env_table, config, focus)
     -- Check if terminal exists but is hidden (no window)
     if not terminal.win or not vim.api.nvim_win_is_valid(terminal.win) then
       -- Terminal is hidden, show it using snacks toggle
+      logger.debug("terminal", "[FLICKER_TRACE] Terminal is hidden - calling toggle() to show")
       terminal:toggle()
       if focus then
         -- 使用新的防闪烁系统
         local anti_flicker = require("claudecode.anti_flicker")
+        logger.debug("terminal", "[FLICKER_TRACE] Focus requested on hidden terminal - applying anti-flicker (200ms)")
         anti_flicker.start_temporary_anti_flicker(200)
 
+        logger.debug("terminal", "[FLICKER_TRACE] Calling terminal:focus() for hidden terminal")
         terminal:focus()
 
         local term_buf_id = terminal.buf
@@ -174,6 +217,7 @@ function M.open(cmd_string, env_table, config, focus)
           and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal"
         then
           if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
+            logger.debug("terminal", "[FLICKER_TRACE] Calling startinsert for auto_insert_mode (hidden->visible)")
             vim.api.nvim_win_call(terminal.win, function()
               vim.cmd("startinsert")
             end)
@@ -182,17 +226,21 @@ function M.open(cmd_string, env_table, config, focus)
       end
     else
       -- Terminal is already visible
+      logger.debug("terminal", "[FLICKER_TRACE] Terminal is already visible")
       if focus then
         -- 使用新的防闪烁系统
         local anti_flicker = require("claudecode.anti_flicker")
+        logger.debug("terminal", "[FLICKER_TRACE] Focus requested on visible terminal - applying anti-flicker (200ms)")
         anti_flicker.start_temporary_anti_flicker(200)
 
+        logger.debug("terminal", "[FLICKER_TRACE] Calling terminal:focus() for visible terminal")
         terminal:focus()
 
         local term_buf_id = terminal.buf
         if term_buf_id and vim.api.nvim_buf_get_option(term_buf_id, "buftype") == "terminal" then
           -- Check if window is valid before calling nvim_win_call
           if terminal.win and vim.api.nvim_win_is_valid(terminal.win) then
+            logger.debug("terminal", "[FLICKER_TRACE] Calling startinsert for auto_insert_mode (visible terminal)")
             vim.api.nvim_win_call(terminal.win, function()
               vim.cmd("startinsert")
             end)
@@ -340,6 +388,7 @@ function M.focus_toggle(cmd_string, env_table, config)
       vim.api.nvim_set_current_win(claude_term_neovim_win_id)
       if config.auto_insert_mode and terminal.buf and vim.api.nvim_buf_is_valid(terminal.buf) then
         if vim.api.nvim_buf_get_option(terminal.buf, "buftype") == "terminal" then
+          logger.debug("terminal", "[FLICKER_TRACE] Focus toggle: calling startinsert for auto_insert_mode")
           vim.api.nvim_win_call(claude_term_neovim_win_id, function()
             vim.cmd("startinsert")
           end)
