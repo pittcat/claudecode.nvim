@@ -133,7 +133,6 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
 
   -- Fix terminal display corruption with reduced scrollback for better performance
   local scrollback_size = 1000 -- Reduced from 10000 to prevent render lag
-  vim.wo[winid].scrollback = scrollback_size
   vim.api.nvim_buf_set_option(bufnr, "scrollback", scrollback_size)
 
   -- Apply minimal display fixes to prevent flickering
