@@ -1241,6 +1241,14 @@ function M._create_commands()
     nargs = "*",
     desc = "Select and open Claude terminal with chosen model and optional arguments",
   })
+
+  vim.api.nvim_create_user_command("ClaudeCodeSelectSession", function(opts)
+    local cmd_args = opts.args and opts.args ~= "" and opts.args or nil
+    M.select_and_resume_session(cmd_args)
+  end, {
+    nargs = "*",
+    desc = "Select and resume a Claude session from project history with optional arguments",
+  })
 end
 
 M.open_with_model = function(additional_args)
@@ -1270,6 +1278,99 @@ M.open_with_model = function(additional_args)
     local final_args = additional_args and (model_arg .. " " .. additional_args) or model_arg
     vim.cmd("ClaudeCode " .. final_args)
   end)
+end
+
+M.select_and_resume_session = function(additional_args)
+  local session_manager = require("claudecode.session_manager")
+  local sessions = session_manager.get_session_list()
+  
+  if #sessions == 0 then
+    logger.warn("command", "No Claude sessions found for current project")
+    return
+  end
+  
+  -- Try to use fzf-lua first, fallback to vim.ui.select
+  local fzf_ok, fzf = pcall(require, "fzf-lua")
+  
+  if fzf_ok then
+    -- Use fzf-lua for better UI
+    local entries = session_manager.format_sessions_for_fzf(sessions)
+    
+    fzf.fzf_exec(function(cb)
+      for _, entry in ipairs(entries) do
+        cb(entry[1])
+      end
+      cb()
+    end, {
+      prompt = "Select Claude session❯ ",
+      winopts = {
+        title = " Claude Sessions ",
+        height = math.min(#sessions + 5, vim.o.lines - 8),
+        width = math.min(120, vim.o.columns - 8),
+      },
+      fzf_opts = {
+        ["--header"] = "Modified     Created      #   Git Branch      Summary",
+        ["--layout"] = "reverse",
+      },
+      actions = {
+        ["default"] = function(selected)
+          if selected and #selected > 0 then
+            local selected_session = nil
+            for _, entry in ipairs(entries) do
+              if entry[1] == selected[1] then
+                selected_session = entry.session
+                break
+              end
+            end
+            
+            if selected_session then
+              local resume_arg = "--resume " .. selected_session.id
+              local final_args = additional_args and (resume_arg .. " " .. additional_args) or resume_arg
+              
+              local terminal_ok, terminal = pcall(require, "claudecode.terminal")
+              if terminal_ok then
+                terminal.simple_toggle({}, final_args)
+              end
+            end
+          end
+        end
+      }
+    })
+  else
+    -- Fallback to vim.ui.select
+    local formatted_sessions, original_sessions = session_manager.format_sessions_for_select(sessions)
+    
+    vim.ui.select(formatted_sessions, {
+      prompt = "Select Claude session to resume:",
+      format_item = function(item)
+        return item
+      end,
+    }, function(choice, idx)
+      if not choice or idx <= 2 then  -- Skip header and separator lines
+        return -- User cancelled or selected header
+      end
+      
+      local session_idx = idx - 2  -- Adjust for header lines
+      local selected_session = original_sessions[session_idx]
+      
+      if not selected_session then
+        logger.error("command", "Invalid session selection")
+        return
+      end
+      
+      logger.info("command", "Resuming session: " .. selected_session.summary)
+      
+      local resume_arg = "--resume " .. selected_session.id
+      local final_args = additional_args and (resume_arg .. " " .. additional_args) or resume_arg
+      
+      local terminal_ok, terminal = pcall(require, "claudecode.terminal")
+      if terminal_ok then
+        terminal.simple_toggle({}, final_args)
+      else
+        logger.error("command", "Terminal module not available")
+      end
+    end)
+  end
 end
 
 --- Get version information

@@ -611,4 +611,170 @@ describe("claudecode.init", function()
       assert.is_equal(0, #mock_vim_cmd.calls, "vim.cmd should not be called when user cancels")
     end)
   end)
+
+  describe("ClaudeCodeSelectSession command", function()
+    local mock_terminal
+    local mock_session_manager
+    local mock_ui_select
+
+    before_each(function()
+      mock_terminal = {
+        simple_toggle = spy.new(function() end),
+      }
+
+      mock_session_manager = {
+        get_session_list = spy.new(function()
+          return {
+            {
+              id = "test-session-1",
+              summary = "Test Session 1 Summary",
+              modified_time = 1691000000,
+              created_time = 1691000000,
+              git_branch = "main",
+              message_count = 10,
+            },
+            {
+              id = "test-session-2", 
+              summary = "Test Session 2 Summary",
+              modified_time = 1690900000,
+              created_time = 1690900000,
+              git_branch = "feature",
+              message_count = 5,
+            }
+          }
+        end),
+        format_sessions_for_select = spy.new(function(sessions)
+          return {
+            "Modified   Created    #   Git Branch      Summary",
+            "--------------------------------------------------------------------------------",
+            "08/02 10:30 08/02 10:30 10  main            Test Session 1 Summary",
+            "08/01 22:00 08/01 22:00  5  feature         Test Session 2 Summary",
+          }, sessions
+        end)
+      }
+
+      -- Mock vim.ui.select to automatically select the first session (index 3, after header)
+      mock_ui_select = spy.new(function(items, opts, callback)
+        callback(items[3], 3) -- Select first session
+      end)
+
+      vim.ui.select = mock_ui_select
+
+      _G.require = function(mod)
+        if mod == "claudecode.terminal" then
+          return mock_terminal
+        elseif mod == "claudecode.session_manager" then
+          return mock_session_manager
+        elseif mod == "claudecode.server.init" then
+          return mock_server
+        elseif mod == "claudecode.lockfile" then
+          return mock_lockfile
+        elseif mod == "claudecode.selection" then
+          return mock_selection
+        else
+          return original_require(mod)
+        end
+      end
+    end)
+
+    it("should register ClaudeCodeSelectSession command with correct configuration", function()
+      local claudecode = require("claudecode")
+      claudecode.setup({ auto_start = false })
+
+      local command_found = false
+      for _, call in ipairs(vim.api.nvim_create_user_command.calls) do
+        if call.vals[1] == "ClaudeCodeSelectSession" then
+          command_found = true
+          local config = call.vals[3]
+          assert.is_equal("*", config.nargs)
+          assert.is_true(
+            string.find(config.desc, "session.*history") ~= nil,
+            "Description should mention session and history"
+          )
+          break
+        end
+      end
+      assert.is_true(command_found, "ClaudeCodeSelectSession command was not registered")
+    end)
+
+    it("should call session_manager and terminal with resume args when session selected", function()
+      local claudecode = require("claudecode")
+      claudecode.setup({ auto_start = false })
+
+      -- Find and call the ClaudeCodeSelectSession command handler
+      local command_handler
+      for _, call in ipairs(vim.api.nvim_create_user_command.calls) do
+        if call.vals[1] == "ClaudeCodeSelectSession" then
+          command_handler = call.vals[2]
+          break
+        end
+      end
+
+      assert.is_function(command_handler, "Command handler should be a function")
+
+      command_handler({ args = "" })
+
+      -- Verify session_manager.get_session_list was called
+      assert(#mock_session_manager.get_session_list.calls > 0, "get_session_list was not called")
+
+      -- Verify session_manager.format_sessions_for_select was called
+      assert(#mock_session_manager.format_sessions_for_select.calls > 0, "format_sessions_for_select was not called")
+
+      -- Verify vim.ui.select was called
+      assert(#mock_ui_select.calls > 0, "vim.ui.select was not called")
+
+      -- Verify terminal.simple_toggle was called with resume args
+      assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
+      local call_args = mock_terminal.simple_toggle.calls[1].vals
+      assert.is_equal("--resume test-session-1", call_args[2], "Should call terminal with resume args")
+    end)
+
+    it("should handle additional arguments correctly", function()
+      local claudecode = require("claudecode")
+      claudecode.setup({ auto_start = false })
+
+      -- Find and call the ClaudeCodeSelectSession command handler
+      local command_handler
+      for _, call in ipairs(vim.api.nvim_create_user_command.calls) do
+        if call.vals[1] == "ClaudeCodeSelectSession" then
+          command_handler = call.vals[2]
+          break
+        end
+      end
+
+      command_handler({ args = "--verbose" })
+
+      -- Verify terminal.simple_toggle was called with resume and additional args
+      assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
+      local call_args = mock_terminal.simple_toggle.calls[1].vals
+      assert.is_equal("--resume test-session-1 --verbose", call_args[2], "Should call terminal with resume and additional args")
+    end)
+
+    it("should handle no sessions found gracefully", function()
+      -- Mock empty session list
+      mock_session_manager.get_session_list = spy.new(function()
+        return {}
+      end)
+
+      local claudecode = require("claudecode")
+      claudecode.setup({ auto_start = false })
+
+      -- Find and call the ClaudeCodeSelectSession command handler
+      local command_handler
+      for _, call in ipairs(vim.api.nvim_create_user_command.calls) do
+        if call.vals[1] == "ClaudeCodeSelectSession" then
+          command_handler = call.vals[2]
+          break
+        end
+      end
+
+      command_handler({ args = "" })
+
+      -- Verify get_session_list was called
+      assert(#mock_session_manager.get_session_list.calls > 0, "get_session_list was not called")
+
+      -- Verify terminal.simple_toggle was NOT called
+      assert.is_equal(0, #mock_terminal.simple_toggle.calls, "terminal.simple_toggle should not be called when no sessions")
+    end)
+  end)
 end)

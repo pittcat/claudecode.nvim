@@ -67,6 +67,7 @@ Is it about viewing CODE with syntax? use 'bat'
 4. **Selection Tracking** (`lua/claudecode/selection.lua`) - Monitors text selections and sends updates to Claude
 5. **Diff Integration** (`lua/claudecode/diff.lua`) - Native Neovim diff support for Claude's file comparisons
 6. **Terminal Integration** (`lua/claudecode/terminal.lua`) - Manages Claude CLI terminal sessions
+7. **Session Management** (`lua/claudecode/session_manager.lua`) - Parses and manages Claude CLI session files for resume functionality
 
 ### WebSocket Server Implementation
 
@@ -108,10 +109,40 @@ The WebSocket server implements secure authentication using:
 
 **Format Compliance**: All tools return MCP-compliant format: `{content: [{type: "text", text: "JSON-stringified-data"}]}`
 
+### Session Management System
+
+**Claude CLI Session Integration**: claudecode.nvim provides seamless integration with Claude CLI's session storage system.
+
+**Key Features**:
+- **Session Discovery**: Automatically finds Claude CLI sessions for the current project directory
+- **Visual Selection Interface**: Provides both vim.ui.select and fzf-lua interfaces for session selection
+- **Rich Metadata Display**: Shows Modified time, Created time, Message count, Git branch, and Session summary
+- **Path Conversion**: Handles directory name mapping between file system and Claude's project storage format
+- **Fallback Summary**: Extracts meaningful summaries from sessions without dedicated summary lines
+
+**Session Storage Format**:
+- Sessions stored in `~/.claude/projects/[project-path]/` as `.jsonl` files
+- Each session contains JSONL lines with message history and metadata
+- Project paths converted from `/path/to/project` to `-path-to-project` format
+- Handles special cases like `.hidden` directories (`-.hidden` becomes `--hidden`)
+
+**UI Interface**:
+- **fzf-lua Integration**: Preferred interface when available, provides fuzzy searching and better UX
+- **vim.ui.select Fallback**: Standard Neovim selection interface when fzf-lua not available
+- **Relative Time Display**: Shows human-readable time formats ("2h ago", "3 days ago")
+- **Structured Layout**: Organized columns matching Claude CLI's native session picker
+
+**Usage**:
+```vim
+:ClaudeCodeSelectSession  " Opens session selection interface
+<leader>ax               " Default key mapping for session selection
+```
+
 ### Key File Locations
 
 - `lua/claudecode/init.lua` - Main entry point and setup
 - `lua/claudecode/config.lua` - Configuration management
+- `lua/claudecode/session_manager.lua` - Claude CLI session parsing and management
 - `plugin/claudecode.lua` - Plugin loader with version checks
 - `tests/` - Comprehensive test suite with unit, component, and integration tests
 
@@ -288,6 +319,7 @@ Log levels for authentication events:
 - `:ClaudeCodeSend` - Send current visual selection to Claude
 - `:ClaudeCodeAdd <file-path> [start-line] [end-line]` - Add specific file to Claude context
 - `:ClaudeCodeStatus` - Check server status and connection info
+- `:ClaudeCodeSelectSession` - Open session selection interface to resume from specific Claude CLI session
 - `:ClaudeCodeDiffAccept` - Accept diff changes
 - `:ClaudeCodeDiffDeny` - Reject diff changes
 

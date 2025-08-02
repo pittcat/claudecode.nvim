@@ -30,7 +30,10 @@ When Anthropic released Claude Code, they only supported VS Code and JetBrains. 
 ```lua
 {
   "coder/claudecode.nvim",
-  dependencies = { "folke/snacks.nvim" },
+  dependencies = { 
+    "folke/snacks.nvim",         -- Required for terminal integration
+    -- "ibhagwan/fzf-lua",       -- Optional: Enhanced session selection UI
+  },
   config = true,
   keys = {
     { "<leader>a", nil, desc = "AI/Claude Code" },
@@ -39,6 +42,7 @@ When Anthropic released Claude Code, they only supported VS Code and JetBrains. 
     { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
     { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
     { "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>", desc = "Select Claude model" },
+    { "<leader>ax", "<cmd>ClaudeCodeSelectSession<cr>", desc = "Select Claude session" },
     { "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer" },
     { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
     {
@@ -60,7 +64,11 @@ That's it! The plugin will auto-configure everything else.
 
 - Neovim >= 0.8.0
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) installed
-- [folke/snacks.nvim](https://github.com/folke/snacks.nvim) for enhanced terminal support
+
+### Optional Dependencies
+
+- [folke/snacks.nvim](https://github.com/folke/snacks.nvim) - Enhanced terminal support
+- [ibhagwan/fzf-lua](https://github.com/ibhagwan/fzf-lua) - Improved session selection UI (falls back to `vim.ui.select` if not available)
 
 ## Quick Demo
 
@@ -94,6 +102,7 @@ That's it! The plugin will auto-configure everything else.
 - `:ClaudeCode` - Toggle the Claude Code terminal window
 - `:ClaudeCodeFocus` - Smart focus/toggle Claude terminal
 - `:ClaudeCodeSelectModel` - Select Claude model and open terminal with optional arguments
+- `:ClaudeCodeSelectSession` - Select and resume a Claude session from project history (enhanced UI with fzf-lua if available)
 - `:ClaudeCodeSend` - Send current visual selection to Claude
 - `:ClaudeCodeAdd <file-path> [start-line] [end-line]` - Add specific file to Claude context with optional line range
 

@@ -16,6 +16,7 @@ return {
     { "<leader>ar", "<cmd>ClaudeCode --resume<cr>", desc = "Resume Claude" },
     { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
     { "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>", desc = "Select Claude model" },
+    { "<leader>ax", "<cmd>ClaudeCodeSelectSession<cr>", desc = "Select Claude session" },
 
     -- Context sending
     { "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer" },
