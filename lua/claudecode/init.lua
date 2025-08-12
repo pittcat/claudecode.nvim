@@ -100,7 +100,6 @@ M.state = {
   queued_mentions = {},
   connection_timer = nil,
   monitoring = nil,
-  flicker_detector = nil,
 }
 
 ---@alias ClaudeCode.TerminalOpts { \
@@ -391,22 +390,6 @@ function M.setup(opts)
     end
   end
 
-  -- 初始化闪烁检测系统 (如果启用)
-  if M.state.config.flicker_detection.enabled then
-    local flicker_setup_ok, flicker_detector = pcall(require, "claudecode.flicker_detector")
-    if flicker_setup_ok then
-      M.state.flicker_detector = flicker_detector
-      logger.info("init", "Claude Code flicker detection system initialized")
-      
-      -- 如果auto_start启用，立即开始检测
-      if M.state.config.flicker_detection.auto_start then
-        flicker_detector.start_detection(M.state.config.flicker_detection.thresholds)
-        logger.info("init", "Flicker detection auto-started")
-      end
-    else
-      logger.error("init", "Failed to load flicker detector module: " .. tostring(flicker_detector))
-    end
-  end
 
   M.state.initialized = true
   return M
@@ -1149,89 +1132,6 @@ function M._create_commands()
     end
   end, {
     desc = "手动触发 Claude Code 智能状态分析",
-  })
-
-  -- Flicker detection commands
-  vim.api.nvim_create_user_command("ClaudeCodeFlickerStart", function()
-    if not M.state.flicker_detector then
-      logger.error("command", "Flicker detection not available. Enable in config with flicker_detection.enabled = true")
-      return
-    end
-    
-    M.state.flicker_detector.start_detection(M.state.config.flicker_detection.thresholds)
-    logger.info("command", "Flicker detection started")
-  end, {
-    desc = "Start flicker detection for terminal behavior analysis",
-  })
-
-  vim.api.nvim_create_user_command("ClaudeCodeFlickerStop", function()
-    if not M.state.flicker_detector then
-      logger.error("command", "Flicker detection not available")
-      return
-    end
-    
-    local report = M.state.flicker_detector.stop_detection()
-    logger.info("command", "Flicker detection stopped. Events detected:", report.summary.flicker_events)
-    
-    -- Show brief summary
-    if report.summary.flicker_events > 0 then
-      local message = string.format("检测到 %d 个闪烁事件，平均严重程度: %.1f", 
-        report.summary.flicker_events, report.summary.avg_severity)
-      vim.notify(message, vim.log.levels.WARN, { title = "Claude Code 闪烁检测" })
-    else
-      vim.notify("未检测到闪烁事件", vim.log.levels.INFO, { title = "Claude Code 闪烁检测" })
-    end
-  end, {
-    desc = "Stop flicker detection and show summary report",
-  })
-
-  vim.api.nvim_create_user_command("ClaudeCodeFlickerReport", function()
-    if not M.state.flicker_detector then
-      logger.error("command", "Flicker detection not available")
-      return
-    end
-    
-    local report = M.state.flicker_detector.get_flicker_report()
-    local output = {}
-    
-    table.insert(output, "=== Claude Code 闪烁检测报告 ===")
-    table.insert(output, string.format("检测状态: %s", report.detection_active and "激活" or "未激活"))
-    if report.detection_active then
-      table.insert(output, string.format("运行时间: %.1f 秒", report.detection_duration))
-    end
-    table.insert(output, "")
-    table.insert(output, "检测概要:")
-    table.insert(output, string.format("  闪烁事件: %d", report.summary.flicker_events))
-    table.insert(output, string.format("  模式变化: %d", report.summary.mode_changes))
-    table.insert(output, string.format("  重绘事件: %d", report.summary.redraw_events))
-    table.insert(output, string.format("  平均严重程度: %.2f", report.summary.avg_severity))
-    table.insert(output, "")
-    table.insert(output, "建议:")
-    for _, recommendation in ipairs(report.recommendations) do
-      table.insert(output, "  • " .. recommendation)
-    end
-    
-    logger.info("command", table.concat(output, "\n"))
-  end, {
-    desc = "Show detailed flicker detection report",
-  })
-
-  vim.api.nvim_create_user_command("ClaudeCodeFlickerStatus", function()
-    if not M.state.flicker_detector then
-      logger.error("command", "Flicker detection not available")
-      return
-    end
-    
-    local stats = M.state.flicker_detector.get_current_stats()
-    if stats.active then
-      local message = string.format("闪烁检测运行中 (%.1f秒) - 事件: %d闪烁, %d模式变化, %d重绘", 
-        stats.uptime, stats.events.flicker, stats.events.mode_changes, stats.events.redraws)
-      logger.info("command", message)
-    else
-      logger.info("command", "闪烁检测未激活")
-    end
-  end, {
-    desc = "Show current flicker detection status",
   })
 
   vim.api.nvim_create_user_command("ClaudeCodeSelectModel", function(opts)

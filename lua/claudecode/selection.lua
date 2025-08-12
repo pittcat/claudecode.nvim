@@ -95,20 +95,6 @@ end
 --- Handles mode change events.
 -- Triggers an immediate update of the selection.
 function M.on_mode_changed()
-  -- 记录模式变化事件，这可能触发flicker
-  local current_mode_info = vim.api.nvim_get_mode()
-  local current_buf = vim.api.nvim_get_current_buf()
-  local buf_name = vim.api.nvim_buf_get_name(current_buf)
-  
-  -- 只对终端缓冲区记录详细log
-  if buf_name and (string.find(buf_name, "term://") or string.find(buf_name, "Claude Code")) then
-    logger.debug("selection", string.format(
-      "[FLICKER_TRACE] ModeChanged in terminal - mode:%s buf:%d bufname:%s",
-      current_mode_info.mode,
-      current_buf,
-      buf_name or "unnamed"
-    ))
-  end
   
   M.update_selection()
 end
