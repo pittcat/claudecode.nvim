@@ -61,11 +61,13 @@ function M.validate(config)
 
   assert(config.bin_path == nil or type(config.bin_path) == "string", "bin_path must be nil or a string")
 
-  -- Validate terminal config
-  assert(type(config.terminal) == "table", "terminal must be a table")
+  -- Validate terminal config (only if present, as it's lazy-loaded)
+  if config.terminal then
+    assert(type(config.terminal) == "table", "terminal must be a table")
+  end
 
   -- Validate provider_opts if present
-  if config.terminal.provider_opts then
+  if config.terminal and config.terminal.provider_opts then
     assert(type(config.terminal.provider_opts) == "table", "terminal.provider_opts must be a table")
 
     -- Validate external_terminal_cmd in provider_opts

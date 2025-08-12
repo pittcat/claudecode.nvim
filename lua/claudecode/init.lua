@@ -327,11 +327,7 @@ function M.setup(opts)
     -- Guard in case tests or user replace the module with a minimal stub without `setup`.
     if type(terminal_module.setup) == "function" then
       -- terminal_opts might be nil, which the setup function should handle gracefully.
-<<<<<<< HEAD
-      terminal_module.setup(terminal_opts, M.state.config.terminal_cmd, M.state.config.bin_path)
-=======
       terminal_module.setup(opts.terminal, M.state.config.terminal_cmd, M.state.config.env)
->>>>>>> pr-117
     end
   else
     logger.error("init", "Failed to load claudecode.terminal module for setup.")
@@ -540,7 +536,6 @@ function M.stop()
   return true
 end
 
-<<<<<<< HEAD
 --- 激活监控适配器
 ---@private
 function M._activate_monitoring()
@@ -563,10 +558,7 @@ function M._activate_monitoring()
   return success
 end
 
---- Set up user commands
-=======
 ---Set up user commands
->>>>>>> pr-117
 ---@private
 function M._create_commands()
   vim.api.nvim_create_user_command("ClaudeCodeStart", function()
@@ -1231,7 +1223,6 @@ M.open_with_model = function(additional_args)
   end)
 end
 
-<<<<<<< HEAD
 M.select_and_resume_session = function(additional_args)
   local session_manager = require("claudecode.session_manager")
   local sessions = session_manager.get_session_list()
@@ -1325,12 +1316,8 @@ M.select_and_resume_session = function(additional_args)
   end
 end
 
---- Get version information
----@return table Version information
-=======
 ---Get version information
 ---@return { version: string, major: integer, minor: integer, patch: integer, prerelease: string|nil }
->>>>>>> pr-117
 function M.get_version()
   return {
     version = M.version:string(),

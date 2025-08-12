@@ -274,12 +274,11 @@ local function is_terminal_visible(bufnr)
   return bufinfo and #bufinfo > 0 and #bufinfo[1].windows > 0
 end
 
-<<<<<<< HEAD
 --- Applies terminal display corruption fixes
 --- @param bufnr number Terminal buffer number
 --- @param winid number Terminal window ID
 local function apply_display_fixes(bufnr, winid)
-  if not config.fix_display_corruption then
+  if not defaults.fix_display_corruption then
     return
   end
 
@@ -304,23 +303,16 @@ local function apply_display_fixes(bufnr, winid)
   end)
 end
 
---- Gets the claude command string and necessary environment variables
---- @param cmd_args string|nil Optional arguments to append to the command
---- @return string cmd_string The command string
---- @return table env_table The environment variables table
-function M.get_claude_command_and_env(cmd_args)
-=======
 ---Gets the claude command string and necessary environment variables
 ---@param cmd_args string? Optional arguments to append to the command
 ---@return string cmd_string The command string
 ---@return table env_table The environment variables table
-local function get_claude_command_and_env(cmd_args)
->>>>>>> pr-117
+function M.get_claude_command_and_env(cmd_args)
   -- Inline get_claude_command logic
   local cmd_from_config = defaults.terminal_cmd
   local base_cmd
   if not cmd_from_config or cmd_from_config == "" then
-    base_cmd = config.bin_path or "claude" -- Use bin_path if terminal_cmd not configured
+    base_cmd = defaults.bin_path or "claude" -- Use bin_path if terminal_cmd not configured
   else
     base_cmd = cmd_from_config
   end
@@ -343,16 +335,15 @@ local function get_claude_command_and_env(cmd_args)
     env_table["CLAUDE_CODE_SSE_PORT"] = tostring(sse_port_value)
   end
 
-<<<<<<< HEAD
   -- Add environment variables to help with terminal display
-  if config.fix_display_corruption then
+  if defaults.fix_display_corruption then
     env_table["TERM"] = "xterm-256color"
     env_table["COLORTERM"] = "truecolor"
-=======
+  end
+
   -- Merge custom environment variables from config
   for key, value in pairs(defaults.env) do
     env_table[key] = value
->>>>>>> pr-117
   end
 
   return cmd_string, env_table
@@ -386,28 +377,13 @@ local function ensure_terminal_visible_no_focus(opts_override, cmd_args)
   return true
 end
 
-<<<<<<< HEAD
---- Configures the terminal module.
--- Merges user-provided terminal configuration with defaults and sets the terminal command.
--- @param user_term_config table (optional) Configuration options for the terminal.
--- @field user_term_config.split_side string 'left' or 'right' (default: 'right').
--- @field user_term_config.split_width_percentage number Percentage of screen width (0.0 to 1.0, default: 0.30).
--- @field user_term_config.provider string 'snacks' or 'native' (default: 'snacks').
--- @field user_term_config.show_native_term_exit_tip boolean Show tip for exiting native terminal (default: true).
--- @field user_term_config.fix_display_corruption boolean Fix red flickering and display corruption (default: true).
--- @field user_term_config.auto_insert_mode boolean Auto enter insert mode when switching to terminal (default: true).
--- @field user_term_config.snacks_win_opts table Opts to pass to `Snacks.terminal.open()` (default: {}).
--- @param p_terminal_cmd string|nil The command to run in the terminal (from main config).
--- @param p_bin_path string|nil The path to the Claude binary (from main config).
-function M.setup(user_term_config, p_terminal_cmd, p_bin_path)
-=======
 ---Configures the terminal module.
 ---Merges user-provided terminal configuration with defaults and sets the terminal command.
 ---@param user_term_config ClaudeCodeTerminalConfig? Configuration options for the terminal.
 ---@param p_terminal_cmd string? The command to run in the terminal (from main config).
 ---@param p_env table? Custom environment variables to pass to the terminal (from main config).
-function M.setup(user_term_config, p_terminal_cmd, p_env)
->>>>>>> pr-117
+---@param p_bin_path string? The path to the Claude binary (from main config).
+function M.setup(user_term_config, p_terminal_cmd, p_env, p_bin_path)
   if user_term_config == nil then -- Allow nil, default to empty table silently
     user_term_config = {}
   elseif type(user_term_config) ~= "table" then -- Warn if it's not nil AND not a table
@@ -436,39 +412,19 @@ function M.setup(user_term_config, p_terminal_cmd, p_env)
   end
 
   if p_bin_path == nil or type(p_bin_path) == "string" then
-    config.bin_path = p_bin_path or "claude"
+    defaults.bin_path = p_bin_path or "claude"
   else
     vim.notify(
       "claudecode.terminal.setup: Invalid bin_path provided: " .. tostring(p_bin_path) .. ". Using default.",
       vim.log.levels.WARN
     )
-    config.bin_path = "claude" -- Fallback to default behavior
+    defaults.bin_path = "claude" -- Fallback to default behavior
   end
 
   for k, v in pairs(user_term_config) do
-<<<<<<< HEAD
-    if config[k] ~= nil and k ~= "terminal_cmd" and k ~= "bin_path" then -- terminal_cmd and bin_path are handled above
-      if k == "split_side" and (v == "left" or v == "right") then
-        config[k] = v
-      elseif k == "split_width_percentage" and type(v) == "number" and v > 0 and v < 1 then
-        config[k] = v
-      elseif k == "provider" and (v == "snacks" or v == "native") then
-        config[k] = v
-      elseif k == "show_native_term_exit_tip" and type(v) == "boolean" then
-        config[k] = v
-      elseif k == "auto_close" and type(v) == "boolean" then
-        config[k] = v
-      elseif k == "fix_display_corruption" and type(v) == "boolean" then
-        config[k] = v
-      elseif k == "auto_insert_mode" and type(v) == "boolean" then
-        config[k] = v
-      elseif k == "snacks_win_opts" and type(v) == "table" then
-        config[k] = v
-=======
     if k == "split_side" then
       if v == "left" or v == "right" then
         defaults.split_side = v
->>>>>>> pr-117
       else
         vim.notify("claudecode.terminal.setup: Invalid value for split_side: " .. tostring(v), vim.log.levels.WARN)
       end
@@ -527,6 +483,18 @@ function M.setup(user_term_config, p_terminal_cmd, p_env)
       else
         vim.notify("claudecode.terminal.setup: Invalid value for auto_close: " .. tostring(v), vim.log.levels.WARN)
       end
+    elseif k == "fix_display_corruption" then
+      if type(v) == "boolean" then
+        defaults.fix_display_corruption = v
+      else
+        vim.notify("claudecode.terminal.setup: Invalid value for fix_display_corruption: " .. tostring(v), vim.log.levels.WARN)
+      end
+    elseif k == "auto_insert_mode" then
+      if type(v) == "boolean" then
+        defaults.auto_insert_mode = v
+      else
+        vim.notify("claudecode.terminal.setup: Invalid value for auto_insert_mode: " .. tostring(v), vim.log.levels.WARN)
+      end
     elseif k == "snacks_win_opts" then
       if type(v) == "table" then
         defaults.snacks_win_opts = v
@@ -563,14 +531,9 @@ function M.setup(user_term_config, p_terminal_cmd, p_env)
         vim.notify("claudecode.terminal.setup: Invalid cwd_provider type: " .. tostring(t), vim.log.levels.WARN)
       end
     else
-      if k ~= "terminal_cmd" then
+      if k ~= "terminal_cmd" and k ~= "bin_path" then -- Avoid warning for terminal_cmd and bin_path if passed in user_term_config
         vim.notify("claudecode.terminal.setup: Unknown configuration key: " .. k, vim.log.levels.WARN)
       end
-<<<<<<< HEAD
-    elseif k ~= "terminal_cmd" and k ~= "bin_path" then -- Avoid warning for terminal_cmd and bin_path if passed in user_term_config
-      vim.notify("claudecode.terminal.setup: Unknown configuration key: " .. k, vim.log.levels.WARN)
-=======
->>>>>>> pr-117
     end
   end
 
