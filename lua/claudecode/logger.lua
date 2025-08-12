@@ -1,5 +1,6 @@
 ---@brief Centralized logger for Claude Code Neovim integration.
 -- Provides level-based logging.
+---@module 'claudecode.logger'
 local M = {}
 
 M.levels = {
@@ -54,7 +55,8 @@ local function write_to_file(level_name, component, message)
   end
 end
 
---- @param plugin_config table The configuration table (e.g., from claudecode.init.state.config).
+---Setup the logger module
+---@param plugin_config ClaudeCodeConfig The configuration table (e.g., from claudecode.init.state.config).
 function M.setup(plugin_config)
   local conf = plugin_config
 
@@ -107,26 +109,24 @@ local function log(level, component, message_parts)
   -- 只有满足日志级别要求的才写入文件
   write_to_file(level_name, component, message)
 
-  -- 控制台输出 (只对重要级别显示)
-  if level == M.levels.ERROR then
-    vim.schedule(function()
+  -- Wrap all vim.notify and nvim_echo calls in vim.schedule to avoid
+  -- "nvim_echo must not be called in a fast event context" errors
+  vim.schedule(function()
+    if level == M.levels.ERROR then
       vim.notify(prefix .. " " .. message, vim.log.levels.ERROR, { title = "ClaudeCode Error" })
-    end)
-  elseif level == M.levels.WARN then
-    vim.schedule(function()
+    elseif level == M.levels.WARN then
       vim.notify(prefix .. " " .. message, vim.log.levels.WARN, { title = "ClaudeCode Warning" })
-    end)
-  elseif level == M.levels.INFO then
-    -- INFO 级别也显示在控制台
-    vim.schedule(function()
+    elseif level == M.levels.INFO then
+      -- INFO 级别也显示在控制台
       vim.api.nvim_echo({ { prefix .. " " .. message, "Normal" } }, true, {})
-    end)
-  end
-  -- DEBUG 和 TRACE 只写入文件，不显示在控制台以避免干扰
+    end
+    -- DEBUG 和 TRACE 只写入文件，不显示在控制台以避免干扰
+  end)
 end
 
---- @param component string|nil Optional component/module name.
--- @param ... any Varargs representing parts of the message.
+---Error level logging
+---@param component string|nil Optional component/module name.
+---@param ... any Varargs representing parts of the message.
 function M.error(component, ...)
   if type(component) ~= "string" then
     log(M.levels.ERROR, nil, { component, ... })
@@ -135,8 +135,9 @@ function M.error(component, ...)
   end
 end
 
---- @param component string|nil Optional component/module name.
--- @param ... any Varargs representing parts of the message.
+---Warn level logging
+---@param component string|nil Optional component/module name.
+---@param ... any Varargs representing parts of the message.
 function M.warn(component, ...)
   if type(component) ~= "string" then
     log(M.levels.WARN, nil, { component, ... })
@@ -145,8 +146,9 @@ function M.warn(component, ...)
   end
 end
 
---- @param component string|nil Optional component/module name.
--- @param ... any Varargs representing parts of the message.
+---Info level logging
+---@param component string|nil Optional component/module name.
+---@param ... any Varargs representing parts of the message.
 function M.info(component, ...)
   if type(component) ~= "string" then
     log(M.levels.INFO, nil, { component, ... })
@@ -155,9 +157,9 @@ function M.info(component, ...)
   end
 end
 
---- Check if a specific log level is enabled
--- @param level_name string The level name ("error", "warn", "info", "debug", "trace")
--- @return boolean Whether the level is enabled
+---Check if a specific log level is enabled
+---@param level_name ClaudeCodeLogLevel The level name ("error", "warn", "info", "debug", "trace")
+---@return boolean enabled Whether the level is enabled
 function M.is_level_enabled(level_name)
   local level_value = level_values[level_name]
   if not level_value then
@@ -187,8 +189,9 @@ function M.clear_log_file()
   init_log_file()
 end
 
---- @param component string|nil Optional component/module name.
--- @param ... any Varargs representing parts of the message.
+---Debug level logging
+---@param component string|nil Optional component/module name.
+---@param ... any Varargs representing parts of the message.
 function M.debug(component, ...)
   if type(component) ~= "string" then
     log(M.levels.DEBUG, nil, { component, ... })
@@ -197,8 +200,9 @@ function M.debug(component, ...)
   end
 end
 
---- @param component string|nil Optional component/module name.
--- @param ... any Varargs representing parts of the message.
+---Trace level logging
+---@param component string|nil Optional component/module name.
+---@param ... any Varargs representing parts of the message.
 function M.trace(component, ...)
   if type(component) ~= "string" then
     log(M.levels.TRACE, nil, { component, ... })
@@ -206,10 +210,5 @@ function M.trace(component, ...)
     log(M.levels.TRACE, component, { ... })
   end
 end
-
--- 不自动初始化，等待用户配置
--- 如果在 setup() 调用前使用了 logger，使用保守的默认级别
--- local default_config_for_initial_setup = require("claudecode.config").defaults
--- M.setup(default_config_for_initial_setup)
 
 return M

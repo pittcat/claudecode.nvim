@@ -1,12 +1,18 @@
+---@brief [[
 --- Manages configuration for the Claude Code Neovim integration.
--- Provides default settings, validation, and application of user-defined configurations.
+--- Provides default settings, validation, and application of user-defined configurations.
+---@brief ]]
+---@module 'claudecode.config'
+
 local M = {}
 
+---@type ClaudeCodeConfig
 M.defaults = {
   port_range = { min = 10000, max = 65535 },
   auto_start = true,
   terminal_cmd = nil,
   bin_path = "claude",
+  env = {}, -- Custom environment variables for Claude terminal
   log_level = "info",
   track_selection = true,
   visual_demotion_delay_ms = 50, -- Milliseconds to wait before demoting a visual selection
@@ -14,10 +20,11 @@ M.defaults = {
   connection_timeout = 10000, -- Maximum time to wait for Claude Code to connect (milliseconds)
   queue_timeout = 5000, -- Maximum time to keep @ mentions in queue (milliseconds)
   diff_opts = {
-    auto_close_on_accept = true,
-    show_diff_stats = true,
-    vertical_split = true,
-    open_in_current_tab = true, -- Use current tab instead of creating new tab
+    layout = "vertical",
+    open_in_new_tab = false, -- Open diff in a new tab (false = use current tab)
+    keep_terminal_focus = false, -- If true, moves focus back to terminal after diff opens
+    hide_terminal_in_new_tab = false, -- If true and opening in a new tab, do not show Claude terminal there
+    on_new_file_reject = "keep_empty", -- "keep_empty" leaves an empty buffer; "close_window" closes the placeholder split
   },
   notification = {
     enabled = true,
@@ -26,15 +33,17 @@ M.defaults = {
     title_prefix = "Claude Code",
   },
   models = {
-    { name = "Claude Opus 4 (Latest)", value = "opus" },
+    { name = "Claude Opus 4.1 (Latest)", value = "opus" },
     { name = "Claude Sonnet 4 (Latest)", value = "sonnet" },
+    { name = "Claude Haiku 3.5 (Latest)", value = "haiku" },
   },
+  terminal = nil, -- Will be lazy-loaded to avoid circular dependency
 }
 
---- Validates the provided configuration table.
--- @param config table The configuration table to validate.
--- @return boolean true if the configuration is valid.
--- @error string if any configuration option is invalid.
+---Validates the provided configuration table.
+---Throws an error if any validation fails.
+---@param config table The configuration table to validate.
+---@return boolean true if the configuration is valid.
 function M.validate(config)
   assert(
     type(config.port_range) == "table"
@@ -51,6 +60,28 @@ function M.validate(config)
   assert(config.terminal_cmd == nil or type(config.terminal_cmd) == "string", "terminal_cmd must be nil or a string")
 
   assert(config.bin_path == nil or type(config.bin_path) == "string", "bin_path must be nil or a string")
+
+  -- Validate terminal config
+  assert(type(config.terminal) == "table", "terminal must be a table")
+
+  -- Validate provider_opts if present
+  if config.terminal.provider_opts then
+    assert(type(config.terminal.provider_opts) == "table", "terminal.provider_opts must be a table")
+
+    -- Validate external_terminal_cmd in provider_opts
+    if config.terminal.provider_opts.external_terminal_cmd then
+      assert(
+        type(config.terminal.provider_opts.external_terminal_cmd) == "string",
+        "terminal.provider_opts.external_terminal_cmd must be a string"
+      )
+      if config.terminal.provider_opts.external_terminal_cmd ~= "" then
+        assert(
+          config.terminal.provider_opts.external_terminal_cmd:find("%%s"),
+          "terminal.provider_opts.external_terminal_cmd must contain '%s' placeholder for the Claude command"
+        )
+      end
+    end
+  end
 
   local valid_log_levels = { "trace", "debug", "info", "warn", "error" }
   local is_valid_log_level = false
@@ -82,10 +113,28 @@ function M.validate(config)
   assert(type(config.queue_timeout) == "number" and config.queue_timeout > 0, "queue_timeout must be a positive number")
 
   assert(type(config.diff_opts) == "table", "diff_opts must be a table")
-  assert(type(config.diff_opts.auto_close_on_accept) == "boolean", "diff_opts.auto_close_on_accept must be a boolean")
-  assert(type(config.diff_opts.show_diff_stats) == "boolean", "diff_opts.show_diff_stats must be a boolean")
-  assert(type(config.diff_opts.vertical_split) == "boolean", "diff_opts.vertical_split must be a boolean")
-  assert(type(config.diff_opts.open_in_current_tab) == "boolean", "diff_opts.open_in_current_tab must be a boolean")
+  assert(
+    config.diff_opts.layout == "vertical" or config.diff_opts.layout == "horizontal",
+    "diff_opts.layout must be 'vertical' or 'horizontal'"
+  )
+  assert(type(config.diff_opts.open_in_new_tab) == "boolean", "diff_opts.open_in_new_tab must be a boolean")
+  assert(type(config.diff_opts.keep_terminal_focus) == "boolean", "diff_opts.keep_terminal_focus must be a boolean")
+  assert(
+    type(config.diff_opts.hide_terminal_in_new_tab) == "boolean",
+    "diff_opts.hide_terminal_in_new_tab must be a boolean"
+  )
+  assert(
+    type(config.diff_opts.on_new_file_reject) == "string"
+      and (config.diff_opts.on_new_file_reject == "keep_empty" or config.diff_opts.on_new_file_reject == "close_window"),
+    "diff_opts.on_new_file_reject must be 'keep_empty' or 'close_window'"
+  )
+
+  -- Validate env
+  assert(type(config.env) == "table", "env must be a table")
+  for key, value in pairs(config.env) do
+    assert(type(key) == "string", "env keys must be strings")
+    assert(type(value) == "string", "env values must be strings")
+  end
 
   assert(type(config.notification) == "table", "notification must be a table")
   assert(type(config.notification.enabled) == "boolean", "notification.enabled must be a boolean")
@@ -107,14 +156,30 @@ function M.validate(config)
   return true
 end
 
---- Applies user configuration on top of default settings and validates the result.
--- @param user_config table|nil The user-provided configuration table.
--- @return table The final, validated configuration table.
+---Applies user configuration on top of default settings and validates the result.
+---@param user_config table|nil The user-provided configuration table.
+---@return ClaudeCodeConfig config The final, validated configuration table.
 function M.apply(user_config)
   local config = vim.deepcopy(M.defaults)
 
+  -- Lazy-load terminal defaults to avoid circular dependency
+  if config.terminal == nil then
+    local terminal_ok, terminal_module = pcall(require, "claudecode.terminal")
+    if terminal_ok and terminal_module.defaults then
+      config.terminal = terminal_module.defaults
+    end
+  end
+
   if user_config then
-    config = vim.tbl_deep_extend("force", config, user_config)
+    -- Use vim.tbl_deep_extend if available, otherwise simple merge
+    if vim.tbl_deep_extend then
+      config = vim.tbl_deep_extend("force", config, user_config)
+    else
+      -- Simple fallback for testing environment
+      for k, v in pairs(user_config) do
+        config[k] = v
+      end
+    end
   end
 
   M.validate(config)

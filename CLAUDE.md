@@ -57,6 +57,24 @@ Is it about viewing CODE with syntax? use 'bat'
 - `nix develop` - Enter development shell with all dependencies
 - `nix fmt` - Format all files using nix formatter
 
+### Integration Testing with Fixtures
+
+The `fixtures/` directory contains test Neovim configurations for verifying plugin integrations:
+
+- `vv <config>` - Start Neovim with a specific fixture configuration
+- `vve <config>` - Start Neovim with a fixture config in edit mode
+- `list-configs` - Show available fixture configurations
+- Source `fixtures/nvim-aliases.sh` to enable these commands
+
+**Available Fixtures**:
+
+- `netrw` - Tests with Neovim's built-in file explorer
+- `nvim-tree` - Tests with nvim-tree.lua file explorer
+- `oil` - Tests with oil.nvim file explorer
+- `mini-files` - Tests with mini.files file explorer
+
+**Usage**: `source fixtures/nvim-aliases.sh && vv oil` starts Neovim with oil.nvim configuration
+
 ## Architecture Overview
 
 ### Core Components
@@ -66,7 +84,7 @@ Is it about viewing CODE with syntax? use 'bat'
 3. **Lock File System** (`lua/claudecode/lockfile.lua`) - Creates discovery files for Claude CLI at `~/.claude/ide/`
 4. **Selection Tracking** (`lua/claudecode/selection.lua`) - Monitors text selections and sends updates to Claude
 5. **Diff Integration** (`lua/claudecode/diff.lua`) - Native Neovim diff support for Claude's file comparisons
-6. **Terminal Integration** (`lua/claudecode/terminal.lua`) - Manages Claude CLI terminal sessions
+6. **Terminal Integration** (`lua/claudecode/terminal.lua`) - Manages Claude CLI terminal sessions with support for internal Neovim terminals and external terminal applications
 7. **Session Management** (`lua/claudecode/session_manager.lua`) - Parses and manages Claude CLI session files for resume functionality
 
 ### WebSocket Server Implementation
@@ -136,6 +154,28 @@ The WebSocket server implements secure authentication using:
 ```vim
 :ClaudeCodeSelectSession  " Opens session selection interface
 <leader>ax               " Default key mapping for session selection
+```
+
+### Terminal Integration Options
+
+**Internal Terminals** (within Neovim):
+
+- **Snacks.nvim**: `terminal/snacks.lua` - Advanced terminal with floating windows
+- **Native**: `terminal/native.lua` - Built-in Neovim terminal as fallback
+
+**External Terminals** (separate applications):
+
+- **External Provider**: `terminal/external.lua` - Launches Claude in external terminal apps
+
+**Configuration Example**:
+
+```lua
+opts = {
+  terminal = {
+    provider = "external",  -- "auto", "snacks", "native", or "external"
+    external_terminal_cmd = "alacritty -e %s"  -- Required for external provider
+  }
+}
 ```
 
 ### Key File Locations
@@ -286,7 +326,36 @@ Enable detailed authentication logging by setting:
 
 ```lua
 require("claudecode").setup({
-  log_level = "debug"  -- Shows auth token generation, validation, and failures
+  log_level = "debug",  -- Shows auth token generation, validation, and failures
+  diff_opts = {
+    keep_terminal_focus = true,  -- If true, moves focus back to terminal after diff opens
+  },
+})
+```
+
+### Configuration Options
+
+#### Diff Options
+
+The `diff_opts` configuration allows you to customize diff behavior:
+
+- `keep_terminal_focus` (boolean, default: `false`) - When enabled, keeps focus in the Claude Code terminal when a diff opens instead of moving focus to the diff buffer. This allows you to continue using terminal keybindings like `<CR>` for accepting/rejecting diffs without accidentally triggering other mappings.
+- `open_in_new_tab` (boolean, default: `false`) - Open diffs in a new tab instead of the current tab.
+- `hide_terminal_in_new_tab` (boolean, default: `false`) - When opening diffs in a new tab, do not show the Claude terminal split in that new tab. The terminal remains in the original tab, giving maximum screen estate for reviewing the diff.
+
+**Example use case**: If you frequently use `<CR>` or arrow keys in the Claude Code terminal to accept/reject diffs, enable this option to prevent focus from moving to the diff buffer where `<CR>` might trigger unintended actions.
+
+```lua
+require("claudecode").setup({
+  diff_opts = {
+    keep_terminal_focus = true,  -- If true, moves focus back to terminal after diff opens
+    open_in_new_tab = true,      -- Open diff in a separate tab
+    hide_terminal_in_new_tab = true, -- In the new tab, do not show Claude terminal
+    auto_close_on_accept = true,
+    show_diff_stats = true,
+    vertical_split = true,
+    open_in_current_tab = true,
+  },
 })
 ```
 
@@ -351,7 +420,7 @@ Key configuration options available in `require("claudecode").setup({})`:
 ### Integration Support
 
 - Terminal integration supports both snacks.nvim and native Neovim terminal
-- Compatible with popular file explorers (nvim-tree, oil.nvim, neo-tree)
+- Compatible with popular file explorers (nvim-tree, oil.nvim, neo-tree, mini.files)
 - Visual selection tracking across different selection modes
 
 ### Common Troubleshooting
@@ -424,6 +493,23 @@ rg "0\.1\.0" .  # Should only show CHANGELOG.md historical entries
 3. **Validate Work**: Run `make` to ensure formatting, linting, and tests pass
 4. **Document Changes**: Update relevant documentation (this file, PROTOCOL.md, etc.)
 5. **Commit**: Only commit after successful `make` execution
+
+### Integration Development Guidelines
+
+**Adding New Integrations** (file explorers, terminals, etc.):
+
+1. **Implement Integration**: Add support in relevant modules (e.g., `lua/claudecode/tools/`)
+2. **Create Fixture Configuration**: **REQUIRED** - Add a complete Neovim config in `fixtures/[integration-name]/`
+3. **Test Integration**: Use fixture to verify functionality with `vv [integration-name]`
+4. **Update Documentation**: Add integration to fixtures list and relevant tool documentation
+5. **Run Full Test Suite**: Ensure `make` passes with new integration
+
+**Fixture Requirements**:
+
+- Complete Neovim configuration with plugin dependencies
+- Include `dev-claudecode.lua` with development keybindings
+- Test all relevant claudecode.nvim features with the integration
+- Document any integration-specific behaviors or limitations
 
 ### MCP Tool Development Guidelines
 
