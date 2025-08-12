@@ -327,7 +327,7 @@ function M.setup(opts)
     -- Guard in case tests or user replace the module with a minimal stub without `setup`.
     if type(terminal_module.setup) == "function" then
       -- terminal_opts might be nil, which the setup function should handle gracefully.
-      terminal_module.setup(opts.terminal, M.state.config.terminal_cmd, M.state.config.env)
+      terminal_module.setup(opts.terminal, M.state.config.terminal_cmd, M.state.config.env, M.state.config.bin_path)
     end
   else
     logger.error("init", "Failed to load claudecode.terminal module for setup.")

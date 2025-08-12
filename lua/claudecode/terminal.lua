@@ -495,6 +495,18 @@ function M.setup(user_term_config, p_terminal_cmd, p_env, p_bin_path)
       else
         vim.notify("claudecode.terminal.setup: Invalid value for auto_insert_mode: " .. tostring(v), vim.log.levels.WARN)
       end
+    elseif k == "bin_path" then
+      if v == nil or type(v) == "string" then
+        defaults.bin_path = v or "claude"
+      else
+        vim.notify("claudecode.terminal.setup: Invalid value for bin_path: " .. tostring(v), vim.log.levels.WARN)
+      end
+    elseif k == "env" then
+      if type(v) == "table" then
+        defaults.env = v
+      else
+        vim.notify("claudecode.terminal.setup: Invalid value for env: " .. tostring(v), vim.log.levels.WARN)
+      end
     elseif k == "snacks_win_opts" then
       if type(v) == "table" then
         defaults.snacks_win_opts = v
