@@ -475,19 +475,35 @@ error({
 4. **MCP Validation** - Tools return proper format structure
 5. **Integration Test** - End-to-end protocol flow verification
 
-## Branch-Specific Features Protection
+## Branch-Specific Features
 
-### add-unsafe-command Branch Features
+### Enhanced Features (add-unsafe-command branch)
 
-**IMPORTANT**: When merging from main branch, the following features MUST be preserved:
+This branch includes additional features beyond the main branch:
 
-1. **Monitoring System** - All `ClaudeCodeMonitoring*` commands and related modules
-2. **Notification System** - macOS notification support with `notification` config
-3. **Anti-Flicker Optimizations** - `fix_display_corruption` and related terminal settings
-4. **Special Commands** - `ClaudeCodeUnsafe` and `ClaudeCodeContinue` commands
-5. **Buffer Refresh** - `utils.refresh_buffers` in save_document tool
+1. **Monitoring System** - Comprehensive monitoring for WebSocket, terminal, and tool calls
+   - `ClaudeCodeMonitoringStatus` - View current monitoring status
+   - `ClaudeCodeMonitoringStats` - Display monitoring statistics
+   - `ClaudeCodeMonitoringHistory` - Show monitoring history
+   - `ClaudeCodeMonitoringHealth` - Check system health
+   - `ClaudeCodeMonitoringAnalyzeNow` - Trigger manual analysis
 
-**Merge Strategy**: Always use `git merge --no-commit main` and manually resolve conflicts to preserve all existing functionality. See `BRANCH_FEATURES.md` for detailed merge instructions.
+2. **Notification System** - macOS notification support for task completion
+   - Configuration: `notification.enabled`, `notification.sound`
+   - Automatic notifications when Claude completes tasks
+
+3. **Anti-Flicker Core** - Terminal display optimization
+   - `anti_flicker.lua` module for smooth terminal transitions
+   - Automatic handling of rapid window switching
+
+4. **Special Commands**
+   - `ClaudeCodeUnsafe` - Execute potentially dangerous operations
+   - `ClaudeCodeContinue` - Continue interrupted operations
+
+5. **Enhanced Tools**
+   - `save_document` includes buffer refresh functionality via `utils.refresh_buffers`
+
+**Note**: These features are experimental and may be merged into main branch in future releases.
 
 ## Development Troubleshooting
 
