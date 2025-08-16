@@ -634,13 +634,13 @@ describe("claudecode.init", function()
               message_count = 10,
             },
             {
-              id = "test-session-2", 
+              id = "test-session-2",
               summary = "Test Session 2 Summary",
               modified_time = 1690900000,
               created_time = 1690900000,
               git_branch = "feature",
               message_count = 5,
-            }
+            },
           }
         end),
         format_sessions_for_select = spy.new(function(sessions)
@@ -649,8 +649,9 @@ describe("claudecode.init", function()
             "--------------------------------------------------------------------------------",
             "08/02 10:30 08/02 10:30 10  main            Test Session 1 Summary",
             "08/01 22:00 08/01 22:00  5  feature         Test Session 2 Summary",
-          }, sessions
-        end)
+          },
+            sessions
+        end),
       }
 
       -- Mock vim.ui.select to automatically select the first session (index 3, after header)
@@ -660,6 +661,8 @@ describe("claudecode.init", function()
 
       vim.ui.select = mock_ui_select
 
+      -- Save original require function
+      local original_require = _G.require
       _G.require = function(mod)
         if mod == "claudecode.terminal" then
           return mock_terminal
@@ -726,7 +729,7 @@ describe("claudecode.init", function()
       -- Verify terminal.simple_toggle was called with resume args
       assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
       local call_args = mock_terminal.simple_toggle.calls[1].vals
-      assert.is_equal("--resume test-session-1", call_args[2], "Should call terminal with resume args")
+      assert.is_equal("--ide --resume test-session-1", call_args[2], "Should call terminal with resume args")
     end)
 
     it("should handle additional arguments correctly", function()
@@ -747,7 +750,11 @@ describe("claudecode.init", function()
       -- Verify terminal.simple_toggle was called with resume and additional args
       assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
       local call_args = mock_terminal.simple_toggle.calls[1].vals
-      assert.is_equal("--resume test-session-1 --verbose", call_args[2], "Should call terminal with resume and additional args")
+      assert.is_equal(
+        "--ide --resume test-session-1 --verbose",
+        call_args[2],
+        "Should call terminal with resume and additional args"
+      )
     end)
 
     it("should handle no sessions found gracefully", function()
@@ -774,7 +781,11 @@ describe("claudecode.init", function()
       assert(#mock_session_manager.get_session_list.calls > 0, "get_session_list was not called")
 
       -- Verify terminal.simple_toggle was NOT called
-      assert.is_equal(0, #mock_terminal.simple_toggle.calls, "terminal.simple_toggle should not be called when no sessions")
+      assert.is_equal(
+        0,
+        #mock_terminal.simple_toggle.calls,
+        "terminal.simple_toggle should not be called when no sessions"
+      )
     end)
   end)
 end)

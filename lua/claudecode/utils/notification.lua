@@ -21,7 +21,8 @@ local config = vim.deepcopy(default_config)
 --- @param user_config table 用户配置
 function M.setup(user_config)
   config = vim.tbl_deep_extend("force", default_config, user_config or {})
-  logger.debug("notification", string.format("Notification configured: %s", vim.inspect(config)))
+  local inspect_func = vim.inspect or tostring
+  logger.debug("notification", string.format("Notification configured: %s", inspect_func(config)))
 end
 
 --- 获取当前项目信息

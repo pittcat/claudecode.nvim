@@ -822,6 +822,22 @@ local vim = {
     return result
   end,
 
+  tbl_keys = function(tbl)
+    local keys = {}
+    for k, _ in pairs(tbl) do
+      table.insert(keys, k)
+    end
+    return keys
+  end,
+
+  tbl_count = function(tbl)
+    local count = 0
+    for _ in pairs(tbl) do
+      count = count + 1
+    end
+    return count
+  end,
+
   inspect = function(obj) -- Keep the mock inspect for controlled output
     if type(obj) == "string" then
       return '"' .. obj .. '"'
@@ -916,10 +932,24 @@ local vim = {
     timer_stop = function(timer)
       return true
     end,
+    hrtime = function()
+      -- 返回纳秒时间戳，模拟高精度时间
+      return os.clock() * 1000000000
+    end,
   },
 
   schedule = function(callback)
     callback()
+  end,
+
+  schedule_wrap = function(callback)
+    -- 返回一个包装的函数，在调用时使用 vim.schedule
+    return function(...)
+      local args = {...}
+      vim.schedule(function()
+        callback(unpack(args))
+      end)
+    end
   end,
 
   defer_fn = function(fn, timeout)

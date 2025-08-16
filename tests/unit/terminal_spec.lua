@@ -98,7 +98,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
     spy_instance_mt.__call = function(self, ...)
       table.insert(self.calls, { refs = internal_deepcopy_for_spy_calls({ ... }) })
       if self.fake_fn then
-        return self.fake_fn(unpack({ ... }))
+        return self.fake_fn(table.unpack({ ... }))
       end
     end
 
@@ -453,7 +453,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
         local env_arg = mock_snacks_provider.open:get_call(1).refs[2]
         local config_arg = mock_snacks_provider.open:get_call(1).refs[3]
 
-        assert.are.equal("claude", cmd_arg)
+        assert.are.equal("claude --ide", cmd_arg)
         assert.is_table(env_arg)
         assert.are.equal("true", env_arg.ENABLE_IDE_INTEGRATION)
         assert.is_table(config_arg)
@@ -475,7 +475,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
       terminal_wrapper.open()
       mock_snacks_provider.open:was_called(1)
       local cmd_arg = mock_snacks_provider.open:get_call(1).refs[1]
-      assert.are.equal("my_claude_cli", cmd_arg)
+      assert.are.equal("my_claude_cli --ide", cmd_arg)
     end)
 
     it("should call provider open twice when terminal exists", function()
@@ -579,7 +579,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
       mock_snacks_provider.simple_toggle:was_called(1)
       local cmd_arg = mock_snacks_provider.simple_toggle:get_call(1).refs[1]
       local config_arg = mock_snacks_provider.simple_toggle:get_call(1).refs[3]
-      assert.are.equal("toggle_claude", cmd_arg)
+      assert.are.equal("toggle_claude --ide", cmd_arg)
       assert.are.equal("left", config_arg.split_side)
       assert.are.equal(0.45, config_arg.split_width_percentage)
     end)
@@ -664,7 +664,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
 
       mock_snacks_provider.open:was_called(1)
       local cmd_arg = mock_snacks_provider.open:get_call(1).refs[1]
-      assert.are.equal("claude", cmd_arg)
+      assert.are.equal("claude --ide", cmd_arg)
     end)
 
     it("should fallback gracefully when cmd_args is empty string", function()
@@ -672,7 +672,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
 
       mock_snacks_provider.simple_toggle:was_called(1)
       local cmd_arg = mock_snacks_provider.simple_toggle:get_call(1).refs[1]
-      assert.are.equal("claude", cmd_arg)
+      assert.are.equal("claude --ide", cmd_arg)
     end)
 
     it("should work with both opts_override and cmd_args", function()
@@ -699,7 +699,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
 
       mock_snacks_provider.open:was_called(1)
       local open_cmd = mock_snacks_provider.open:get_call(1).refs[1]
-      assert.are.equal("claude", open_cmd)
+      assert.are.equal("claude --ide", open_cmd)
 
       -- Close the existing terminal and reset spies to test toggle in isolation
       terminal_wrapper.close()
@@ -710,7 +710,7 @@ describe("claudecode.terminal (wrapper for Snacks.nvim)", function()
 
       mock_snacks_provider.simple_toggle:was_called(1)
       local toggle_cmd = mock_snacks_provider.simple_toggle:get_call(1).refs[1]
-      assert.are.equal("claude", toggle_cmd)
+      assert.are.equal("claude --ide", toggle_cmd)
     end)
   end)
 

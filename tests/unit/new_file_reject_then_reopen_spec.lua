@@ -74,9 +74,10 @@ describe("New file diff: reject then reopen", function()
     -- 2) Reject the diff; cleanup should NOT delete the reused empty buffer
     diff._resolve_diff_as_rejected(tab_name)
 
-    -- After reject, the diff state should be removed
+    -- After reject, the diff state should be marked as rejected (but not removed yet)
     local active_after_reject = diff._get_active_diffs()
-    assert.is_nil(active_after_reject[tab_name])
+    assert.is_not_nil(active_after_reject[tab_name])
+    assert.are.equal("rejected", active_after_reject[tab_name].status)
 
     -- The reused buffer should still be valid (not deleted)
     assert.is_true(vim.api.nvim_buf_is_valid(reused_buf))

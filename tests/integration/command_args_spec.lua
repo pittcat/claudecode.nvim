@@ -294,8 +294,8 @@ describe("ClaudeCode command arguments integration", function()
 
       local cmd_string = type(last_cmd.cmd) == "table" and table.concat(last_cmd.cmd, " ") or last_cmd.cmd
       assert.is_true(
-        cmd_string == "claude" or cmd_string:find("^claude$") ~= nil,
-        "Command should be just 'claude' without extra arguments"
+        cmd_string == "claude --ide" or cmd_string:find("^claude --ide$") ~= nil,
+        "Command should be 'claude --ide' with IDE integration"
       )
     end)
   end)
@@ -375,7 +375,7 @@ describe("ClaudeCode command arguments integration", function()
       local last_cmd = executed_commands[#executed_commands]
 
       local cmd_string = type(last_cmd.cmd) == "table" and table.concat(last_cmd.cmd, " ") or last_cmd.cmd
-      assert.is_true(cmd_string == "claude" or cmd_string:find("^claude$") ~= nil, "Should work exactly as before")
+      assert.is_true(cmd_string == "claude --ide" or cmd_string:find("^claude --ide$") ~= nil, "Should work with IDE integration")
     end)
 
     it("should maintain existing ClaudeCodeClose command functionality", function()

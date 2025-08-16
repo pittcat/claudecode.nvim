@@ -105,6 +105,10 @@ describe("claudecode.terminal.native toggle behavior", function()
           -- Mock window-specific function execution
           return fn()
         end,
+        nvim_create_autocmd = function(events, opts)
+          -- Mock autocmd creation - just return a mock ID
+          return math.random(1000, 9999)
+        end,
       },
       cmd = function(command)
         -- Handle vsplit and other commands

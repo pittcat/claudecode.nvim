@@ -360,7 +360,7 @@ function M.setup(opts)
   })
 
   -- 初始化监控系统 (如果启用)
-  if M.state.config.monitoring.enabled then
+  if M.state.config.monitoring and M.state.config.monitoring.enabled then
     local monitoring_setup_ok, monitoring_module = pcall(require, "claudecode.monitoring.init")
     if monitoring_setup_ok then
       -- 提取监控配置并初始化

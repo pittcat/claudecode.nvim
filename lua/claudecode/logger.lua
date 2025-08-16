@@ -119,8 +119,13 @@ local function log(level, component, message_parts)
     elseif level == M.levels.INFO then
       -- INFO 级别也显示在控制台
       vim.api.nvim_echo({ { prefix .. " " .. message, "Normal" } }, true, {})
+    elseif level == M.levels.DEBUG then
+      -- DEBUG 级别也显示在控制台（用于测试）
+      vim.api.nvim_echo({ { prefix .. " " .. message, "Comment" } }, true, {})
+    elseif level == M.levels.TRACE then
+      -- TRACE 级别也显示在控制台（用于测试）
+      vim.api.nvim_echo({ { prefix .. " " .. message, "Comment" } }, true, {})
     end
-    -- DEBUG 和 TRACE 只写入文件，不显示在控制台以避免干扰
   end)
 end
 

@@ -12,6 +12,11 @@ describe("Logger", function()
 
   local function setup()
     package.loaded["claudecode.logger"] = nil
+    
+    -- Reset tracking arrays
+    scheduled_calls = {}
+    notify_calls = {}
+    echo_calls = {}
 
     -- Mock vim.schedule to track calls
     original_vim_schedule = vim.schedule
@@ -43,9 +48,7 @@ describe("Logger", function()
     vim.schedule = original_vim_schedule
     vim.notify = original_vim_notify
     vim.api.nvim_echo = original_nvim_echo
-    scheduled_calls = {}
-    notify_calls = {}
-    echo_calls = {}
+    -- Arrays are reset in setup(), no need to reset here
   end
 
   before_each(function()

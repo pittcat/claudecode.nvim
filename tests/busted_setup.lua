@@ -8,6 +8,47 @@ end
 -- Ensure vim global is accessible
 _G.vim = _G.vim or {}
 
+-- Ensure vim.inspect is always available as fallback
+if not _G.vim.inspect then
+  _G.vim.inspect = function(obj)
+    if type(obj) == "string" then
+      return '"' .. obj .. '"'
+    elseif type(obj) == "table" then
+      local items = {}
+      local is_array = true
+      local i = 1
+      for k, _ in pairs(obj) do
+        if k ~= i then
+          is_array = false
+          break
+        end
+        i = i + 1
+      end
+
+      if is_array then
+        for _, v in ipairs(obj) do
+          table.insert(items, _G.vim.inspect(v))
+        end
+        return "{" .. table.concat(items, ", ") .. "}"
+      else
+        for k, v in pairs(obj) do
+          local key_str = type(k) == "string" and k or "[" .. _G.vim.inspect(k) .. "]"
+          table.insert(items, key_str .. " = " .. _G.vim.inspect(v))
+        end
+        return "{" .. table.concat(items, ", ") .. "}"
+      end
+    elseif type(obj) == "boolean" then
+      return tostring(obj)
+    elseif type(obj) == "number" then
+      return tostring(obj)
+    elseif obj == nil then
+      return "nil"
+    else
+      return type(obj) .. ": " .. tostring(obj)
+    end
+  end
+end
+
 -- Setup test globals
 _G.assert = require("luassert")
 

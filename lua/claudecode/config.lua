@@ -32,6 +32,14 @@ M.defaults = {
     include_project_path = true,
     title_prefix = "Claude Code",
   },
+  monitoring = {
+    enabled = false, -- 默认关闭监控系统
+    auto_start = false,
+    websocket_timeout = 30000,
+    terminal_timeout = 60000,
+    tool_call_timeout = 15000,
+    max_history_size = 1000,
+  },
   models = {
     { name = "Claude Opus 4.1 (Latest)", value = "opus" },
     { name = "Claude Sonnet 4 (Latest)", value = "sonnet" },
@@ -144,6 +152,11 @@ function M.validate(config)
   assert(type(config.notification.include_project_path) == "boolean", "notification.include_project_path must be a boolean")
   assert(type(config.notification.title_prefix) == "string", "notification.title_prefix must be a string")
 
+  -- Validate monitoring
+  assert(type(config.monitoring) == "table", "monitoring must be a table")
+  assert(type(config.monitoring.enabled) == "boolean", "monitoring.enabled must be a boolean")
+  assert(type(config.monitoring.auto_start) == "boolean", "monitoring.auto_start must be a boolean")
+
   -- Validate models
   assert(type(config.models) == "table", "models must be a table")
   assert(#config.models > 0, "models must not be empty")
@@ -177,10 +190,18 @@ function M.apply(user_config)
     if vim.tbl_deep_extend then
       config = vim.tbl_deep_extend("force", config, user_config)
     else
-      -- Simple fallback for testing environment
-      for k, v in pairs(user_config) do
-        config[k] = v
+      -- Simple fallback for testing environment with deep merge
+      local function deep_merge(target, source)
+        for k, v in pairs(source) do
+          if type(v) == "table" and type(target[k]) == "table" then
+            target[k] = deep_merge(target[k], v)
+          else
+            target[k] = v
+          end
+        end
+        return target
       end
+      config = deep_merge(config, user_config)
     end
   end
 
