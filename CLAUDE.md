@@ -258,6 +258,109 @@ make test  # Recommended for complete validation
 - **Performance**: Tests should run quickly to encourage frequent execution
 - **Clarity**: Test names should clearly describe what behavior is being verified
 
+### Session Management Testing Requirements
+
+**Critical Test Coverage for Session Management**:
+
+Given the complexity and frequent changes in session management functionality, comprehensive testing is essential to prevent merge-induced regressions.
+
+**Required Test Categories**:
+
+1. **Session Discovery Tests** (`tests/unit/session_manager_spec.lua`):
+   ```lua
+   -- Test path conversion for various project structures
+   describe("path conversion", function()
+     it("handles standard paths", function()
+       expect(convert_path("/home/user/project")).to.equal("-home-user-project")
+     end)
+     
+     it("handles dotfiles correctly", function()
+       expect(convert_path("/home/user/.vim")).to.equal("-home-user--vim")
+       expect(convert_path("/project/.config")).to.equal("-project--config")
+     end)
+     
+     it("handles complex project names", function()
+       expect(convert_path("/project/name.with.dots")).to.equal("-project-name-with-dots")
+     end)
+   end)
+   ```
+
+2. **Session Parsing Tests**:
+   ```lua
+   -- Test empty vs real session detection
+   describe("session content analysis", function()
+     it("identifies empty sessions", function()
+       local session = parse_mock_session_with_only_commands()
+       expect(session.is_empty).to.be(true)
+     end)
+     
+     it("identifies sessions with real conversations", function()
+       local session = parse_mock_session_with_user_messages()
+       expect(session.is_empty).to.be(false)
+     end)
+   end)
+   ```
+
+3. **Session Resume Integration Tests**:
+   ```lua
+   -- Test complete resume flow
+   describe("session resume", function()
+     it("includes --ide parameter", function()
+       local terminal_mock = create_terminal_mock()
+       resume_session("session-id-123")
+       expect(terminal_mock.last_command).to.match("--ide --resume session-id-123")
+     end)
+     
+     it("blocks empty session resume", function()
+       local empty_session = {is_empty = true, summary = "Empty session"}
+       expect(function() resume_session_object(empty_session) end).to.error()
+     end)
+   end)
+   ```
+
+4. **UI Interface Tests**:
+   ```lua
+   -- Test both fzf-lua and vim.ui.select interfaces
+   describe("session selection UI", function()
+     it("formats sessions correctly for fzf", function()
+       local sessions = get_mock_sessions()
+       local formatted = format_sessions_for_fzf(sessions)
+       expect(#formatted).to.equal(#sessions)
+       expect(formatted[1][1]).to.match("%d+ %w+ %d+ %w+ .+")
+     end)
+     
+     it("handles empty session list", function()
+       local formatted = format_sessions_for_select({})
+       expect(formatted[1]).to.match("No sessions found")
+     end)
+   end)
+   ```
+
+**Manual Testing Checklist**:
+
+Before any session management changes are merged, manually verify:
+
+- [ ] Session discovery works for current project structure
+- [ ] Session list displays correctly in both UI modes (fzf-lua + vim.ui.select)
+- [ ] Empty sessions show `[Empty Session]` prefix
+- [ ] Resume attempt on empty session shows warning and blocks
+- [ ] Resumed sessions include `--ide` parameter in command
+- [ ] Path conversion works for edge cases (dots, hidden dirs, special chars)
+- [ ] Debug logging shows correct session discovery flow
+
+**Test Data Requirements**:
+
+Create test fixtures for common scenarios:
+- Normal project: `/home/user/normal-project/`
+- Dotfile project: `/home/user/.vim/`
+- Complex name: `/home/user/project.with.dots/`
+- Nested hidden: `/home/user/project/.hidden/subdir/`
+
+Each fixture should include:
+- Mock session files with varying content types
+- Expected path conversion results
+- Expected UI formatting output
+
 ## Authentication Testing
 
 The plugin implements authentication using UUID v4 tokens that are generated for each server session and stored in lock files. This ensures secure connections between Claude CLI and the Neovim WebSocket server.
@@ -494,6 +597,64 @@ rg "0\.1\.0" .  # Should only show CHANGELOG.md historical entries
 4. **Document Changes**: Update relevant documentation (this file, PROTOCOL.md, etc.)
 5. **Commit**: Only commit after successful `make` execution
 
+### Merge Conflict Prevention and Testing
+
+**Preventing Merge-Induced Issues**:
+
+1. **Pre-Merge Testing**: Before merging any branch, run comprehensive tests on the merged code:
+   ```bash
+   # Test merge conflicts before actual merge
+   git checkout main
+   git pull origin main
+   git checkout feature-branch
+   git merge main --no-commit --no-ff
+   make  # Run full test suite on merged state
+   git merge --abort  # Cancel test merge
+   ```
+
+2. **Session Management Testing**: When making changes to session management or terminal modules:
+   ```bash
+   # Test session discovery and selection
+   :ClaudeCodeSelectSession  # Verify session list appears correctly
+   
+   # Test session resumption with different scenarios
+   # - Empty sessions (should be blocked)
+   # - Normal sessions with conversation history
+   # - Sessions with different git branches
+   
+   # Verify path conversion works for different project structures
+   # Test with projects containing dots: .vim, .config, project.name
+   ```
+
+3. **Integration Testing Requirements**: For session management changes, verify:
+   - Session parsing correctly identifies empty vs. real conversations
+   - Path conversion handles all edge cases (dots, hidden dirs, special chars)
+   - `--ide` parameter is properly added during session resume
+   - Both fzf-lua and vim.ui.select interfaces work correctly
+   - Error handling for invalid/missing sessions
+
+4. **Debug Logging Validation**: Enable debug logging and verify:
+   ```lua
+   require("claudecode").setup({
+     log_level = "debug"
+   })
+   ```
+   - Session discovery shows correct paths
+   - Command construction includes all required parameters
+   - Terminal creation/destruction is properly logged
+   - Authentication flow is traceable
+
+**Post-Merge Validation Checklist**:
+
+- [ ] All existing commands work (`ClaudeCode`, `ClaudeCodeSelectSession`, etc.)
+- [ ] Session selection interface displays correctly
+- [ ] Session resumption includes `--ide` parameter
+- [ ] Empty sessions are properly identified and blocked
+- [ ] Path conversion works for current project type
+- [ ] Terminal integration functions correctly
+- [ ] All tests pass: `make test`
+- [ ] Code quality checks pass: `make check`
+
 ### Integration Development Guidelines
 
 **Adding New Integrations** (file explorers, terminals, etc.):
@@ -555,11 +716,88 @@ error({
 
 ### Development Quality Gates
 
+**Mandatory Quality Checks** (must pass before any commit/merge):
+
 1. **`make check`** - Syntax and linting (0 warnings required)
+   ```bash
+   make check
+   # Should output: "Lua syntax check passed" and "Luacheck passed"
+   ```
+
 2. **`make test`** - All tests passing (320/320 success rate required)
+   ```bash
+   make test
+   # Must show: All tests passed (100% success rate)
+   # Any test failure blocks the commit
+   ```
+
 3. **`make format`** - Consistent code formatting
-4. **MCP Validation** - Tools return proper format structure
-5. **Integration Test** - End-to-end protocol flow verification
+   ```bash
+   make format
+   # Should complete without errors
+   # Verify no additional changes with: git diff
+   ```
+
+4. **Session Management Regression Tests** - Critical functionality verification
+   ```bash
+   # Manual verification required for session-related changes
+   :ClaudeCodeSelectSession  # Should list sessions correctly
+   # Test empty session blocking
+   # Test --ide parameter inclusion
+   # Verify path conversion for current project
+   ```
+
+5. **MCP Validation** - Tools return proper format structure
+   ```bash
+   # Run integration tests specifically
+   busted tests/integration/ --verbose
+   ```
+
+6. **Integration Test** - End-to-end protocol flow verification
+   ```bash
+   # Test complete workflow
+   :ClaudeCodeStart  # Should start server
+   :ClaudeCodeStatus  # Should show running status
+   :ClaudeCode  # Should open terminal successfully
+   ```
+
+**Enhanced Quality Assurance for Merge-Prone Areas**:
+
+**Session Management Changes**:
+- [ ] Run session management test suite: `busted tests/unit/session_manager_spec.lua`
+- [ ] Test path conversion edge cases manually
+- [ ] Verify both fzf-lua and vim.ui.select interfaces
+- [ ] Check empty session detection and blocking
+- [ ] Confirm `--ide` parameter inclusion in resume commands
+
+**Terminal Integration Changes**:
+- [ ] Test all terminal providers (snacks, native, external)
+- [ ] Verify command construction and environment setup
+- [ ] Check terminal focus management
+- [ ] Test terminal close behavior and exit code handling
+
+**Tool System Changes**:
+- [ ] Verify all MCP tools return correct format
+- [ ] Test error handling for each tool
+- [ ] Confirm VS Code extension compatibility
+- [ ] Run tool-specific test suites
+
+**Pre-Merge Validation Protocol**:
+
+For any changes touching session management, terminal integration, or core functionality:
+
+1. **Isolated Testing**: Test changes in isolation first
+2. **Merge Simulation**: Test with simulated merge (as described in Merge Conflict Prevention)
+3. **Full Integration**: Run complete test suite on merged state
+4. **Manual Verification**: Complete manual testing checklist
+5. **Documentation**: Update relevant documentation if behavior changes
+
+**Regression Prevention**:
+
+- **Never skip `make` command** - this is the primary safety net
+- **Test edge cases explicitly** - especially for path handling and session detection
+- **Verify backwards compatibility** - existing sessions should still work
+- **Check error handling** - ensure graceful degradation for edge cases
 
 ## Branch-Specific Features
 
