@@ -1,0 +1,169 @@
+---
+globs: *.lua
+---
+
+# claudecode.nvim Lua 编码约定
+
+遵循项目中已建立的 Lua 编码风格和模式。
+
+## 模块结构
+
+### 模块头部注释
+```lua
+---@brief [[
+--- 模块功能的简短描述
+--- 更详细的描述第二行
+---@brief ]]
+---@module 'claudecode.module_name'
+
+local M = {}
+```
+
+### 模块导出模式
+- 使用 `local M = {}` 作为模块表
+- 在文件末尾 `return M`
+- 私有函数使用 `local function` 定义
+- 公共函数作为 `M.function_name` 定义
+
+## 类型注解
+
+### LuaLS 注解
+所有公共函数都应该有类型注解：
+```lua
+---Add @ mention to Claude Code context
+---@param file_path string The file path to mention
+---@param start_line number|nil Optional start line (0-indexed for Claude)
+---@param end_line number|nil Optional end line (0-indexed for Claude)
+---@param context string|nil Context for logging
+---@return boolean success Whether the operation was successful
+---@return string|nil error Error message if failed
+function M.send_at_mention(file_path, start_line, end_line, context)
+```
+
+### 类型定义
+- 复杂类型在 [types.lua](mdc:lua/claudecode/types.lua) 中定义
+- 使用 `---@class` 定义对象类型
+- 使用 `---@alias` 定义类型别名
+
+## 错误处理
+
+### 一致的错误传播模式
+```lua
+local ok, result = pcall(risky_operation)
+if not ok then
+  logger.error("Operation failed: " .. tostring(result))
+  return false, result
+end
+return true, result
+```
+
+### 输入验证
+在函数开始时验证参数：
+```lua
+function M.example(file_path)
+  if not file_path or type(file_path) ~= "string" or file_path == "" then
+    error("file_path must be a non-empty string")
+  end
+  -- 函数实现
+end
+```
+
+## 异步和线程安全
+
+### Neovim API 调用
+所有异步上下文中的 Neovim API 调用必须使用 `vim.schedule()`:
+```lua
+client:on("message", function(data)
+  vim.schedule(function()
+    -- 在这里安全使用 vim.* API
+    vim.cmd("edit " .. file_path)
+  end)
+end)
+```
+
+### 定时器使用
+```lua
+local timer = vim.loop.new_timer()
+timer:start(delay_ms, 0, vim.schedule_wrap(function()
+  -- 定时器回调
+end))
+```
+
+## 日志记录
+
+使用项目的 logger 模块：
+```lua
+local logger = require("claudecode.logger")
+
+-- 不同级别的日志
+logger.trace("context", "Detailed debugging info")
+logger.debug("context", "Development info") 
+logger.info("context", "General information")
+logger.warn("context", "Warning message")
+logger.error("context", "Error message")
+```
+
+## 配置处理
+
+### 深度合并模式
+```lua
+if vim.tbl_deep_extend then
+  config = vim.tbl_deep_extend("force", defaults, user_config)
+else
+  -- 测试环境的简单回退
+  for k, v in pairs(user_config) do
+    config[k] = v
+  end
+end
+```
+
+### 配置验证
+在 [config.lua](mdc:lua/claudecode/config.lua) 中集中验证：
+```lua
+assert(type(config.auto_start) == "boolean", "auto_start must be a boolean")
+assert(config.terminal_cmd == nil or type(config.terminal_cmd) == "string", 
+       "terminal_cmd must be nil or a string")
+```
+
+## 资源管理
+
+### 自动清理
+```lua
+vim.api.nvim_create_autocmd("VimLeavePre", {
+  group = vim.api.nvim_create_augroup("ModuleCleanup", { clear = true }),
+  callback = function()
+    M.cleanup()
+  end,
+})
+```
+
+### 定时器清理
+```lua
+if timer then
+  timer:stop()
+  timer:close()
+  timer = nil
+end
+```
+
+## 函数命名约定
+
+- 公共 API: `snake_case`
+- 私有函数: `snake_case` with `local`
+- 测试辅助函数: 以 `_` 为前缀 (例如 `M._broadcast_at_mention`)
+- 回调函数: 描述性名称 (例如 `on_connection`, `handle_message`)
+
+## 变量命名
+
+- 局部变量: `snake_case`
+- 常量: `UPPER_SNAKE_CASE`
+- 模块级状态: 在 `M.state` 或 `M.defaults` 中组织
+
+## 代码组织
+
+### 文件内结构顺序
+1. 模块头部和导入
+2. 常量和默认值
+3. 私有函数
+4. 公共函数
+5. 模块返回

@@ -1,0 +1,400 @@
+---
+description: "WebSocket server and MCP protocol implementation patterns"
+---
+
+# WebSocket 和 MCP 协议模式
+
+claudecode.nvim 的 WebSocket 服务器和 MCP (Model Context Protocol) 实现模式。
+
+## WebSocket 服务器架构
+
+### 服务器层次结构
+```
+server/
+├── init.lua              # 服务器主入口和状态管理  
+├── tcp.lua               # TCP 服务器 (vim.loop)
+├── handshake.lua         # HTTP 升级到 WebSocket
+├── frame.lua             # RFC 6455 帧解析器
+├── client.lua            # 客户端连接管理
+└── utils.lua             # 纯 Lua 工具 (SHA-1, base64)
+```
+
+### TCP 服务器模式
+参考 [server/tcp.lua](mdc:lua/claudecode/server/tcp.lua):
+```lua
+-- 创建 TCP 服务器
+local tcp = vim.loop.new_tcp()
+tcp:bind("127.0.0.1", port)  -- 仅本地绑定！
+tcp:listen(128, function(err)
+  if err then
+    logger.error("server", "Listen error: " .. err)
+    return
+  end
+  
+  local client = vim.loop.new_tcp()
+  tcp:accept(client)
+  
+  -- 处理新连接
+  handle_new_connection(client)
+end)
+```
+
+### WebSocket 握手模式
+```lua
+-- HTTP 升级请求处理
+local function handle_handshake(request)
+  local key = request:match("Sec%-WebSocket%-Key: ([^\r\n]+)")
+  if not key then
+    return nil, "Missing Sec-WebSocket-Key"
+  end
+  
+  -- RFC 6455 握手计算
+  local accept_key = base64_encode(sha1(key .. WEBSOCKET_GUID))
+  
+  local response = "HTTP/1.1 101 Switching Protocols\r\n" ..
+                  "Upgrade: websocket\r\n" ..
+                  "Connection: Upgrade\r\n" ..
+                  "Sec-WebSocket-Accept: " .. accept_key .. "\r\n\r\n"
+  
+  return response
+end
+```
+
+## WebSocket 帧处理
+
+### 帧解析模式
+参考 [server/frame.lua](mdc:lua/claudecode/server/frame.lua):
+```lua
+local function parse_frame(data)
+  if #data < 2 then
+    return nil, "Incomplete frame header"
+  end
+  
+  local byte1, byte2 = string.byte(data, 1, 2)
+  
+  -- 提取帧信息
+  local fin = bit.band(byte1, 0x80) ~= 0
+  local opcode = bit.band(byte1, 0x0F)
+  local masked = bit.band(byte2, 0x80) ~= 0
+  local payload_len = bit.band(byte2, 0x7F)
+  
+  -- 扩展长度处理
+  local header_len = 2
+  if payload_len == 126 then
+    header_len = 4
+    payload_len = (string.byte(data, 3) << 8) | string.byte(data, 4)
+  elseif payload_len == 127 then
+    header_len = 10
+    -- 64位长度处理...
+  end
+  
+  return {
+    fin = fin,
+    opcode = opcode,
+    masked = masked,
+    payload_len = payload_len,
+    payload = extract_payload(data, header_len, payload_len, masked)
+  }
+end
+```
+
+### 帧类型处理
+```lua
+local OPCODES = {
+  CONTINUATION = 0x0,
+  TEXT = 0x1,
+  BINARY = 0x2,
+  CLOSE = 0x8,
+  PING = 0x9,
+  PONG = 0xA,
+}
+
+local function handle_frame(client, frame)
+  if frame.opcode == OPCODES.TEXT then
+    -- 处理文本消息 (JSON-RPC)
+    handle_json_rpc_message(client, frame.payload)
+  elseif frame.opcode == OPCODES.PING then
+    -- 响应 pong
+    send_pong_frame(client, frame.payload)
+  elseif frame.opcode == OPCODES.CLOSE then
+    -- 优雅关闭连接
+    close_connection(client)
+  end
+end
+```
+
+## MCP 协议实现
+
+### JSON-RPC 2.0 消息处理
+```lua
+local function handle_json_rpc_message(client, payload)
+  local ok, message = pcall(vim.json.decode, payload)
+  if not ok then
+    send_error_response(client, nil, -32700, "Parse error")
+    return
+  end
+  
+  if message.method then
+    -- 请求或通知
+    if message.id then
+      handle_request(client, message)
+    else
+      handle_notification(client, message)
+    end
+  else
+    -- 响应
+    handle_response(client, message)
+  end
+end
+```
+
+### MCP 工具注册模式
+参考 [tools/init.lua](mdc:lua/claudecode/tools/init.lua):
+```lua
+local M = {}
+local registry = {}
+
+-- 动态工具注册
+function M.register(name, schema, handler)
+  registry[name] = {
+    schema = schema,
+    handler = handler,
+  }
+end
+
+-- 自动生成工具列表
+function M.get_tool_list()
+  local tools = {}
+  for name, tool in pairs(registry) do
+    if tool.schema then
+      table.insert(tools, {
+        name = name,
+        description = tool.schema.description,
+        inputSchema = tool.schema
+      })
+    end
+  end
+  return tools
+end
+
+-- 工具调用分发
+function M.call_tool(name, arguments)
+  local tool = registry[name]
+  if not tool then
+    return nil, "Tool not found: " .. name
+  end
+  
+  -- 验证参数 (可选)
+  local ok, result = pcall(tool.handler, arguments)
+  if not ok then
+    return nil, "Tool execution failed: " .. result
+  end
+  
+  return result
+end
+```
+
+### 工具实现模式
+```lua
+-- 注册 openFile 工具
+M.register("openFile", {
+  type = "object",
+  description = "Open a file in the editor",
+  properties = {
+    filePath = {
+      type = "string",
+      description = "Path to the file to open"
+    },
+    lineNumber = {
+      type = "number",
+      description = "Optional line number to jump to"
+    }
+  },
+  required = { "filePath" }
+}, function(params)
+  vim.schedule(function()
+    local cmd = "edit " .. params.filePath
+    if params.lineNumber then
+      cmd = cmd .. " | " .. params.lineNumber
+    end
+    vim.cmd(cmd)
+  end)
+  
+  return {
+    content = {{
+      type = "text",
+      text = "Opened " .. params.filePath
+    }}
+  }
+end)
+```
+
+## 连接管理模式
+
+### 客户端状态跟踪
+```lua
+local clients = {}
+
+local function create_client(socket)
+  local client = {
+    id = generate_client_id(),
+    socket = socket,
+    state = "connected",
+    last_ping = vim.loop.now(),
+  }
+  
+  clients[client.id] = client
+  return client
+end
+
+local function remove_client(client_id)
+  local client = clients[client_id]
+  if client and client.socket then
+    client.socket:close()
+  end
+  clients[client_id] = nil
+end
+```
+
+### Ping/Pong 保活机制
+```lua
+-- 定期发送 ping
+local function start_keepalive_timer()
+  local timer = vim.loop.new_timer()
+  timer:start(30000, 30000, function() -- 每30秒
+    for _, client in pairs(clients) do
+      send_ping_frame(client)
+    end
+  end)
+  return timer
+end
+
+-- 处理 pong 响应
+local function handle_pong(client, payload)
+  client.last_ping = vim.loop.now()
+  logger.debug("client", "Received pong from " .. client.id)
+end
+```
+
+## Lock 文件发现机制
+
+### 原子文件写入
+参考 [lockfile.lua](mdc:lua/claudecode/lockfile.lua):
+```lua
+function M.create(port, auth_token)
+  local lock_data = {
+    port = port,
+    auth_token = auth_token,
+    pid = vim.fn.getpid(),
+    created_at = os.time(),
+  }
+  
+  local lock_path = get_lock_path(port)
+  local temp_path = lock_path .. ".tmp"
+  
+  -- 原子写入防止部分读取
+  local ok, err = write_file(temp_path, vim.json.encode(lock_data))
+  if not ok then
+    return false, "Failed to write temp file: " .. err
+  end
+  
+  local rename_ok, rename_err = vim.loop.fs_rename(temp_path, lock_path)
+  if not rename_ok then
+    vim.loop.fs_unlink(temp_path) -- 清理临时文件
+    return false, "Failed to rename temp file: " .. rename_err
+  end
+  
+  return true, lock_path, auth_token
+end
+```
+
+## 认证和安全
+
+### 认证令牌生成
+```lua
+function M.generate_auth_token()
+  -- 生成安全随机令牌
+  local random_data = {}
+  for i = 1, 32 do
+    table.insert(random_data, math.random(0, 255))
+  end
+  
+  return base64_encode(string.char(unpack(random_data)))
+end
+```
+
+### 请求验证
+```lua
+local function validate_auth(client, message)
+  local auth_header = message.auth_token
+  if not auth_header or auth_header ~= M.state.auth_token then
+    send_error_response(client, message.id, -32001, "Unauthorized")
+    return false
+  end
+  return true
+end
+```
+
+## 错误处理和恢复
+
+### 连接错误处理
+```lua
+socket:on("error", function(err)
+  logger.error("client", "Socket error: " .. err)
+  remove_client(client.id)
+end)
+
+socket:on("close", function()
+  logger.debug("client", "Client disconnected: " .. client.id)
+  remove_client(client.id)
+end)
+```
+
+### 协议错误响应
+```lua
+local function send_error_response(client, id, code, message)
+  local error_response = {
+    jsonrpc = "2.0",
+    id = id,
+    error = {
+      code = code,
+      message = message
+    }
+  }
+  
+  send_json_message(client, error_response)
+end
+```
+
+## 性能优化模式
+
+### 消息批处理
+```lua
+local message_queue = {}
+local flush_timer = nil
+
+local function queue_message(client, message)
+  table.insert(message_queue, {client = client, message = message})
+  
+  if not flush_timer then
+    flush_timer = vim.defer_fn(function()
+      flush_message_queue()
+      flush_timer = nil
+    end, 10) -- 10ms 批处理延迟
+  end
+end
+```
+
+### 内存管理
+```lua
+-- 定期清理断开的连接
+local function cleanup_stale_connections()
+  local now = vim.loop.now()
+  for id, client in pairs(clients) do
+    if now - client.last_ping > 60000 then -- 60秒超时
+      logger.warn("client", "Removing stale client: " .. id)
+      remove_client(id)
+    end
+  end
+end
+```

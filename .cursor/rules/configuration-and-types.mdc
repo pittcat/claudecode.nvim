@@ -1,0 +1,321 @@
+---
+description: "Configuration management and type system patterns for claudecode.nvim"
+---
+
+# 配置管理和类型系统
+
+claudecode.nvim 的配置验证、类型定义和管理模式。
+
+## 类型系统设计
+
+### 中心化类型定义
+所有用户面向的类型在 [types.lua](mdc:lua/claudecode/types.lua) 中定义:
+```lua
+---@meta
+---@brief [[
+--- Centralized type definitions for ClaudeCode.nvim public API.
+---@brief ]]
+
+-- 主配置结构
+---@class ClaudeCodeConfig
+---@field port_range ClaudeCodePortRange
+---@field auto_start boolean
+---@field terminal_cmd string|nil
+---@field log_level ClaudeCodeLogLevel
+---@field models ClaudeCodeModelOption[]
+
+-- 部分配置 (用户输入)
+---@class (partial) PartialClaudeCodeConfig: ClaudeCodeConfig
+```
+
+### 类型别名模式
+```lua
+-- 字符串联合类型
+---@alias ClaudeCodeLogLevel "trace"|"debug"|"info"|"warn"|"error"
+---@alias ClaudeCodeDiffLayout "vertical"|"horizontal"
+---@alias ClaudeCodeSplitSide "left"|"right"
+
+-- 提供者类型
+---@alias ClaudeCodeTerminalProviderName "auto"|"snacks"|"native"|"external"
+```
+
+### 复杂对象类型
+```lua
+-- 嵌套配置对象
+---@class ClaudeCodeDiffOptions
+---@field layout ClaudeCodeDiffLayout
+---@field open_in_new_tab boolean
+---@field keep_terminal_focus boolean
+---@field on_new_file_reject ClaudeCodeNewFileRejectBehavior
+
+-- 接口定义
+---@class ClaudeCodeTerminalProvider
+---@field setup fun(config: ClaudeCodeTerminalConfig)
+---@field open fun(cmd_string: string, env_table: table, config: ClaudeCodeTerminalConfig, focus: boolean?)
+---@field close fun()
+---@field is_available fun(): boolean
+```
+
+## 配置管理模式
+
+### 默认配置结构
+参考 [config.lua](mdc:lua/claudecode/config.lua):
+```lua
+---@type ClaudeCodeConfig
+M.defaults = {
+  port_range = { min = 10000, max = 65535 },
+  auto_start = true,
+  terminal_cmd = nil,
+  log_level = "info",
+  models = {
+    { name = "Claude Opus 4.1 (Latest)", value = "opus" },
+    { name = "Claude Sonnet 4 (Latest)", value = "sonnet" },
+    { name = "Claude Haiku 3.5 (Latest)", value = "haiku" },
+  },
+  terminal = nil, -- 延迟加载避免循环依赖
+}
+```
+
+### 配置验证模式
+```lua
+function M.validate(config)
+  assert(
+    type(config.port_range) == "table"
+      and type(config.port_range.min) == "number"
+      and type(config.port_range.max) == "number"
+      and config.port_range.min > 0
+      and config.port_range.max <= 65535
+      and config.port_range.min <= config.port_range.max,
+    "Invalid port range"
+  )
+
+  assert(type(config.auto_start) == "boolean", "auto_start must be a boolean")
+
+  -- 枚举验证
+  local valid_log_levels = { "trace", "debug", "info", "warn", "error" }
+  local is_valid_log_level = false
+  for _, level in ipairs(valid_log_levels) do
+    if config.log_level == level then
+      is_valid_log_level = true
+      break
+    end
+  end
+  assert(is_valid_log_level, "log_level must be one of: " .. table.concat(valid_log_levels, ", "))
+
+  return true
+end
+```
+
+### 配置应用模式
+```lua
+function M.apply(user_config)
+  local config = vim.deepcopy(M.defaults)
+
+  -- 延迟加载终端默认值
+  if config.terminal == nil then
+    local terminal_ok, terminal_module = pcall(require, "claudecode.terminal")
+    if terminal_ok and terminal_module.defaults then
+      config.terminal = terminal_module.defaults
+    end
+  end
+
+  if user_config then
+    if vim.tbl_deep_extend then
+      config = vim.tbl_deep_extend("force", config, user_config)
+    else
+      -- 测试环境的简单回退
+      for k, v in pairs(user_config) do
+        config[k] = v
+      end
+    end
+  end
+
+  M.validate(config)
+  return config
+end
+```
+
+## 状态管理模式
+
+### 模块状态结构
+```lua
+-- 主模块状态
+---@type ClaudeCodeState
+M.state = {
+  config = require("claudecode.config").defaults,
+  server = nil,
+  port = nil,
+  auth_token = nil,
+  initialized = false,
+  mention_queue = {},
+  mention_timer = nil,
+  connection_timer = nil,
+}
+```
+
+### 状态访问器模式
+```lua
+---Check if Claude Code is connected to WebSocket server
+---@return boolean connected Whether Claude Code has active connections
+function M.is_claude_connected()
+  if not M.state.server then
+    return false
+  end
+
+  local server_module = require("claudecode.server.init")
+  local status = server_module.get_status()
+  return status.running and status.client_count > 0
+end
+```
+
+## 配置别名和便利模式
+
+### 顶级别名支持
+```lua
+-- 在 setup 中支持顶级 cwd 相关别名
+do
+  local t = opts.terminal or {}
+  local had_alias = false
+  if opts.git_repo_cwd ~= nil then
+    t.git_repo_cwd = opts.git_repo_cwd
+    had_alias = true
+  end
+  if opts.cwd ~= nil then
+    t.cwd = opts.cwd
+    had_alias = true
+  end
+  if had_alias then
+    opts.terminal = t
+  end
+end
+```
+
+### 配置提供者模式
+```lua
+-- 工作目录解析上下文
+---@class ClaudeCodeCwdContext
+---@field file string|nil   -- 当前缓冲区文件的绝对路径
+---@field file_dir string|nil -- 当前缓冲区文件的目录
+---@field cwd string        -- 当前 Neovim 工作目录
+
+---@alias ClaudeCodeCwdProvider fun(ctx: ClaudeCodeCwdContext): string|nil
+
+-- 使用示例
+terminal = {
+  cwd_provider = function(ctx)
+    -- 优先使用 repo 根目录，回退到文件目录
+    local cwd = require("claudecode.cwd").git_root(ctx.file_dir or ctx.cwd) 
+                or ctx.file_dir 
+                or ctx.cwd
+    return cwd
+  end,
+}
+```
+
+## 模型配置模式
+
+### 模型选项结构
+```lua
+---@class ClaudeCodeModelOption
+---@field name string  -- 显示名称
+---@field value string -- CLI 参数值
+
+-- 配置示例
+models = {
+  { name = "Claude Opus 4.1 (Latest)", value = "opus" },
+  { name = "Claude Sonnet 4 (Latest)", value = "sonnet" },
+  { name = "Claude Haiku 3.5 (Latest)", value = "haiku" },
+}
+```
+
+### 模型选择UI模式
+```lua
+vim.ui.select(models, {
+  prompt = "Select Claude model:",
+  format_item = function(item)
+    return item.name
+  end,
+}, function(choice)
+  if not choice then
+    return -- 用户取消
+  end
+
+  local model_arg = "--model " .. choice.value
+  local final_args = additional_args and (model_arg .. " " .. additional_args) or model_arg
+  vim.cmd("ClaudeCode " .. final_args)
+end)
+```
+
+## 环境变量配置
+
+### 环境表验证
+```lua
+-- 验证 env 配置
+assert(type(config.env) == "table", "env must be a table")
+for key, value in pairs(config.env) do
+  assert(type(key) == "string", "env keys must be strings")
+  assert(type(value) == "string", "env values must be strings")
+end
+```
+
+### 环境传递模式
+```lua
+-- 合并插件配置的环境变量
+local function get_effective_env(base_env, config_env)
+  local env = vim.tbl_extend("force", base_env or {}, config_env or {})
+  return env
+end
+
+terminal.open(cmd_string, get_effective_env(os_env, M.state.config.env))
+```
+
+## 配置迁移和兼容性
+
+### 向后兼容性检查
+```lua
+-- 检查已废弃的配置选项
+if opts.old_option then
+  logger.warn("config", "old_option is deprecated, use new_option instead")
+  opts.new_option = opts.old_option
+  opts.old_option = nil
+end
+```
+
+### 配置架构演化
+```lua
+-- 处理配置架构变更
+if type(opts.diff_opts) == "boolean" then
+  -- 旧的布尔值配置迁移到新的对象配置
+  opts.diff_opts = {
+    enabled = opts.diff_opts,
+    layout = "vertical",
+  }
+end
+```
+
+## 调试和配置诊断
+
+### 配置转储
+```lua
+function M.dump_config()
+  local safe_config = vim.deepcopy(M.state.config)
+  -- 移除敏感信息
+  if safe_config.auth_token then
+    safe_config.auth_token = "[REDACTED]"
+  end
+  return safe_config
+end
+```
+
+### 配置验证报告
+```lua
+function M.validate_and_report(config)
+  local ok, err = pcall(M.validate, config)
+  if not ok then
+    logger.error("config", "Configuration validation failed: " .. err)
+    return false, err
+  end
+  logger.info("config", "Configuration validation passed")
+  return true
+end
+```

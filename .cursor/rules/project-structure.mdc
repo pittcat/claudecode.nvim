@@ -1,0 +1,78 @@
+---
+alwaysApply: true
+---
+
+# claudecode.nvim 项目结构指南
+
+## 核心架构
+
+claudecode.nvim 是一个纯 Lua 实现的 Neovim 插件，通过 WebSocket 服务器与 Claude Code CLI 集成。
+
+### 主要模块结构
+
+```
+lua/claudecode/
+├── init.lua              # 插件入口点，设置和用户命令
+├── config.lua            # 配置管理和验证
+├── server/               # WebSocket 服务器实现 (RFC 6455)
+│   ├── init.lua          # 服务器主入口
+│   ├── tcp.lua           # TCP 服务器 (vim.loop)
+│   ├── handshake.lua     # HTTP 升级处理
+│   ├── frame.lua         # WebSocket 帧解析器
+│   ├── client.lua        # 连接管理
+│   └── utils.lua         # 纯 Lua SHA-1, base64
+├── tools/                # MCP 工具注册表
+│   ├── init.lua          # 工具注册和分发
+│   └── [tool_name].lua   # 各种 MCP 工具实现
+├── monitoring/           # 监控系统 (可选)
+├── terminal/             # 终端集成提供者
+├── diff.lua              # 原生 diff 支持
+├── selection.lua         # 选择跟踪
+├── lockfile.lua          # Claude CLI 发现文件
+├── types.lua             # TypeScript 风格的类型定义
+└── utils.lua             # 通用工具函数
+```
+
+### 关键设计原则
+
+1. **零外部依赖**: 仅使用 Neovim 内置 API (vim.loop, vim.json)
+2. **线程安全**: 所有异步上下文中的 Neovim API 调用都使用 `vim.schedule()`
+3. **资源清理**: 自动在退出时清理资源 (VimLeavePre autocmd)
+4. **协议兼容**: 100% 兼容官方 VS Code 扩展的 WebSocket MCP 协议
+
+### 模块依赖关系
+
+- [init.lua](mdc:lua/claudecode/init.lua) 是主入口点，协调所有其他模块
+- [config.lua](mdc:lua/claudecode/config.lua) 提供配置验证和默认值
+- [server/](mdc:lua/claudecode/server/) 包含完整的 WebSocket 实现
+- [tools/](mdc:lua/claudecode/tools/) 实现 Claude 可调用的 MCP 工具
+- [terminal.lua](mdc:lua/claudecode/terminal.lua) 管理终端集成
+
+### 测试架构
+
+```
+tests/
+├── unit/                 # 单元测试 (隔离功能测试)
+├── integration/          # 集成测试 (端到端流程)
+├── busted_setup.lua      # 测试环境设置
+├── mocks/                # 测试模拟对象
+└── helpers/              # 测试辅助函数
+```
+
+### Fixture 系统
+
+```
+fixtures/
+├── [integration]/        # 各种集成的完整 Neovim 配置
+│   ├── init.lua
+│   ├── lazy-lock.json
+│   └── lua/
+├── bin/                  # 测试辅助脚本 (vv, vve, list-configs)
+└── nvim-aliases.sh       # Shell 别名用于快速测试
+```
+
+**在添加新功能时**:
+1. 更新相关的类型定义在 [types.lua](mdc:lua/claudecode/types.lua)
+2. 添加单元测试到 `tests/unit/`
+3. 如需要，添加集成测试到 `tests/integration/`
+4. 更新配置验证在 [config.lua](mdc:lua/claudecode/config.lua)

@@ -1,0 +1,329 @@
+---
+description: "Neovim plugin development patterns and conventions for claudecode.nvim"
+---
+
+# Neovim 插件开发模式
+
+claudecode.nvim 的 Neovim 插件开发约定和最佳实践。
+
+## 插件架构模式
+
+### 入口点模式 (plugin/)
+```lua
+-- plugin/claudecode.lua
+if vim.g.loaded_claudecode then
+  return
+end
+vim.g.loaded_claudecode = 1
+
+-- 延迟加载实际插件逻辑
+vim.api.nvim_create_user_command("ClaudeCode", function()
+  require("claudecode").start()
+end, {})
+```
+
+### 主模块模式 (lua/claudecode/init.lua)
+参考 [init.lua](mdc:lua/claudecode/init.lua):
+```lua
+local M = {}
+
+-- 插件状态
+M.state = {
+  config = require("claudecode.config").defaults,
+  server = nil,
+  initialized = false,
+}
+
+-- 主设置函数
+function M.setup(opts)
+  opts = opts or {}
+  M.state.config = require("claudecode.config").apply(opts)
+  -- 初始化逻辑
+  M.state.initialized = true
+  return M
+end
+```
+
+## 用户命令注册
+
+### 命令注册模式
+```lua
+vim.api.nvim_create_user_command("ClaudeCodeStart", function()
+  M.start()
+end, {
+  desc = "Start Claude Code integration",
+})
+
+vim.api.nvim_create_user_command("ClaudeCodeAdd", function(opts)
+  if not opts.args or opts.args == "" then
+    logger.error("command", "No file path provided")
+    return
+  end
+  -- 命令逻辑
+end, {
+  nargs = "+",
+  complete = "file",
+  desc = "Add specified file to Claude Code context",
+})
+```
+
+### 范围命令支持
+```lua
+vim.api.nvim_create_user_command("ClaudeCodeSend", function(opts)
+  local line1, line2 = nil, nil
+  if opts and opts.range and opts.range > 0 then
+    line1, line2 = opts.line1, opts.line2
+  end
+  -- 处理范围选择
+end, {
+  range = true,
+  desc = "Send current visual selection to Claude Code",
+})
+```
+
+## Autocmd 和生命周期管理
+
+### 自动清理模式
+```lua
+vim.api.nvim_create_autocmd("VimLeavePre", {
+  group = vim.api.nvim_create_augroup("ClaudeCodeShutdown", { clear = true }),
+  callback = function()
+    if M.state.server then
+      M.stop()
+    end
+  end,
+  desc = "Automatically stop Claude Code integration when exiting Neovim",
+})
+```
+
+### 选择跟踪模式
+```lua
+local timer = nil
+vim.api.nvim_create_autocmd({"CursorMoved", "CursorMovedI"}, {
+  callback = function()
+    if timer then
+      timer:stop()
+      timer:close()
+    end
+    timer = vim.defer_fn(function()
+      M.send_selection_update()
+    end, M.state.config.visual_demotion_delay_ms)
+  end,
+})
+```
+
+## 异步编程模式
+
+### vim.loop 使用
+```lua
+-- TCP 服务器
+local tcp = vim.loop.new_tcp()
+tcp:bind("127.0.0.1", port)
+tcp:listen(128, function(err)
+  if err then
+    logger.error("server", "Listen error: " .. err)
+    return
+  end
+  -- 处理连接
+end)
+
+-- 定时器
+local timer = vim.loop.new_timer()
+timer:start(1000, 1000, vim.schedule_wrap(function()
+  -- 定时逻辑
+end))
+```
+
+### 线程安全模式
+```lua
+-- 所有异步上下文中的 Neovim API 调用
+client:on("message", function(data)
+  vim.schedule(function()
+    -- 安全使用 vim.api.*
+    local bufnr = vim.api.nvim_get_current_buf()
+  end)
+end)
+```
+
+## 终端集成模式
+
+### 提供者模式
+参考 [terminal.lua](mdc:lua/claudecode/terminal.lua):
+```lua
+local providers = {
+  snacks = require("claudecode.terminal.snacks"),
+  native = require("claudecode.terminal.native"),
+  external = require("claudecode.terminal.external"),
+}
+
+function M.get_provider(name)
+  if type(name) == "table" then
+    return name -- 自定义提供者
+  end
+  
+  if name == "auto" then
+    -- 自动检测最佳提供者
+    for _, provider_name in ipairs({"snacks", "native"}) do
+      local provider = providers[provider_name]
+      if provider and provider.is_available() then
+        return provider
+      end
+    end
+  end
+  
+  return providers[name]
+end
+```
+
+### 自定义提供者接口
+```lua
+local custom_provider = {
+  setup = function(config) end,
+  open = function(cmd_string, env_table, config, focus) end,
+  close = function() end,
+  simple_toggle = function(cmd_string, env_table, config) end,
+  focus_toggle = function(cmd_string, env_table, config) end,
+  get_active_bufnr = function() return bufnr end,
+  is_available = function() return true end,
+}
+```
+
+## 文件浏览器集成
+
+### 统一文件选择接口
+```lua
+local integrations = require("claudecode.integrations")
+
+-- 检测当前文件浏览器
+local current_ft = vim.bo.filetype
+local current_bufname = vim.api.nvim_buf_get_name(0)
+
+local is_tree_buffer = current_ft == "NvimTree"
+  or current_ft == "neo-tree"
+  or current_ft == "oil"
+  or current_ft == "minifiles"
+
+if is_tree_buffer then
+  local files, error = integrations.get_selected_files_from_tree()
+  -- 处理选中的文件
+end
+```
+
+## Diff 集成
+
+### 原生 diff 支持
+```lua
+-- 创建临时文件
+local temp_file = vim.fn.tempname()
+write_file(temp_file, new_content)
+
+-- 打开 diff 视图
+vim.cmd("edit " .. original_file)
+vim.cmd("diffthis")
+vim.cmd("vsplit " .. temp_file)
+vim.cmd("diffthis")
+
+-- 自定义键映射
+vim.keymap.set("n", "<leader>da", function()
+  M.accept_diff()
+end, { buffer = true, desc = "Accept all changes" })
+```
+
+## 配置模式
+
+### 深度合并和验证
+```lua
+function M.apply(user_config)
+  local config = vim.deepcopy(M.defaults)
+  
+  if user_config then
+    if vim.tbl_deep_extend then
+      config = vim.tbl_deep_extend("force", config, user_config)
+    else
+      -- 测试环境的回退
+      for k, v in pairs(user_config) do
+        config[k] = v
+      end
+    end
+  end
+  
+  M.validate(config)
+  return config
+end
+```
+
+## 日志和调试
+
+### 日志级别管理
+```lua
+local log_levels = {
+  trace = 1, debug = 2, info = 3, warn = 4, error = 5
+}
+
+function M.should_log(level)
+  return log_levels[level] >= log_levels[M.config.log_level]
+end
+
+function M.log(level, context, message)
+  if M.should_log(level) then
+    print(string.format("[%s] %s: %s", level:upper(), context, message))
+  end
+end
+```
+
+## 性能考虑
+
+### 延迟加载
+```lua
+-- 延迟加载终端默认值以避免循环依赖
+if config.terminal == nil then
+  local terminal_ok, terminal_module = pcall(require, "claudecode.terminal")
+  if terminal_ok and terminal_module.defaults then
+    config.terminal = terminal_module.defaults
+  end
+end
+```
+
+### 防抖模式
+```lua
+local function debounce(func, delay)
+  local timer = nil
+  return function(...)
+    local args = {...}
+    if timer then
+      timer:stop()
+      timer:close()
+    end
+    timer = vim.defer_fn(function()
+      func(unpack(args))
+    end, delay)
+  end
+end
+```
+
+## 兼容性处理
+
+### Neovim 版本兼容
+```lua
+-- 使用 vim.schedule_wrap 如果可用
+local wrapped_function = vim.schedule_wrap and vim.schedule_wrap(callback)
+  or function()
+    vim.schedule(callback)
+  end
+
+-- 检查 API 可用性
+if vim.api.nvim_buf_get_name then
+  local bufname = vim.api.nvim_buf_get_name(0)
+end
+```
+
+### 插件间兼容性
+```lua
+-- 检查插件是否可用
+local has_fzf, fzf = pcall(require, "fzf-lua")
+if has_fzf then
+  -- 使用 fzf-lua 增强 UI
+else
+  -- 回退到 vim.ui.select
+end
+```

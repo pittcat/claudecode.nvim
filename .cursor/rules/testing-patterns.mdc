@@ -1,0 +1,252 @@
+---
+globs: tests/**/*.lua,*_spec.lua
+---
+
+# claudecode.nvim 测试模式和约定
+
+基于 Busted 测试框架的三层测试策略。
+
+## 测试文件结构
+
+### 文件命名约定
+- 单元测试: `tests/unit/[module_name]_spec.lua`
+- 集成测试: `tests/integration/[feature_name]_spec.lua`
+- 测试辅助: `tests/helpers/[helper_name].lua`
+- 模拟对象: `tests/mocks/[mock_name].lua`
+
+### 测试文件头部
+```lua
+-- luacheck: globals expect
+require("tests.busted_setup")
+
+describe("ModuleName", function()
+  local module_under_test
+
+  local function setup()
+    package.loaded["claudecode.module"] = nil
+    module_under_test = require("claudecode.module")
+  end
+
+  local function teardown()
+    -- 清理资源
+  end
+
+  before_each(setup)
+  after_each(teardown)
+```
+
+## 三层测试策略
+
+### 1. 单元测试 (tests/unit/)
+隔离功能测试:
+```lua
+describe("frame parser", function()
+  it("handles masked frames", function()
+    local frame = parse_frame(masked_data)
+    expect(frame.payload).to_be("hello")
+  end)
+  
+  it("should reject invalid port range", function()
+    local invalid_config = { port_range = { min = -1, max = 65536 } }
+    
+    local success, _ = pcall(function()
+      config.validate(invalid_config)
+    end)
+    
+    expect(success).to_be_false()
+  end)
+end)
+```
+
+### 2. 组件测试
+子系统测试:
+```lua
+describe("websocket server", function()
+  it("accepts connections", function()
+    local server = Server:new()
+    server:start(12345)
+    -- 测试连接逻辑
+  end)
+end)
+```
+
+### 3. 集成测试 (tests/integration/)
+端到端与模拟 Claude:
+```lua
+describe("full flow", function()
+  it("handles tool calls", function()
+    local mock_claude = create_mock_client()
+    -- 测试完整消息流
+  end)
+end)
+```
+
+## Mock 对象模式
+
+### Spy 对象实现
+```lua
+local SpyObject = {}
+function SpyObject.new(fn)
+  local spy_obj = {
+    _original = fn,
+    calls = {},
+  }
+
+  function spy_obj.spy()
+    return {
+      was_called = function(n)
+        assert(#spy_obj.calls == n, "Expected " .. n .. " calls, got " .. #spy_obj.calls)
+        return true
+      end,
+      was_not_called = function()
+        assert(#spy_obj.calls == 0, "Expected 0 calls, got " .. #spy_obj.calls)
+        return true
+      end,
+    }
+  end
+
+  return setmetatable(spy_obj, {
+    __call = function(self, ...)
+      table.insert(self.calls, { vals = { ... } })
+      if self._original then
+        return self._original(...)
+      end
+    end,
+  })
+end
+```
+
+### Vim API 模拟
+在 [tests/mocks/vim.lua](mdc:tests/mocks/vim.lua) 中集中管理:
+```lua
+vim.api = {
+  nvim_create_autocmd = SpyObject.new(function() end),
+  nvim_create_augroup = SpyObject.new(function() return 1 end),
+  nvim_create_user_command = SpyObject.new(function() end),
+}
+
+vim.fn = {
+  getpid = function() return 123 end,
+  expand = function() return "/mock/path" end,
+  -- 其他必要的函数模拟
+}
+```
+
+### 模块模拟
+```lua
+local mock_server = {
+  start = function() return true, 12345 end,
+  stop = SpyObject.new(function() return true end),
+}
+
+_G.require = function(mod)
+  if mod == "claudecode.server.init" then
+    return mock_server
+  else
+    return original_require(mod)
+  end
+end
+```
+
+## 断言模式
+
+### Busted 断言风格
+```lua
+-- 使用 expect 风格断言 (推荐)
+expect(result).to_be_true()
+expect(config.defaults).to_have_key("port_range")
+expect(final_config.terminal_cmd).to_be("toggleterm")
+
+-- 类型检查
+expect(config.defaults).to_be_table()
+expect(command_handler).to_be_function()
+
+-- 数组/表检查
+expect(#models).to_be_greater_than(0)
+```
+
+### Spy 验证
+```lua
+-- 调用次数验证
+assert(#mock_terminal.simple_toggle.calls > 0, "terminal.simple_toggle was not called")
+
+-- 参数验证
+local call_args = mock_terminal.simple_toggle.calls[1].vals
+assert.is_equal("--resume --verbose", call_args[2], "Should pass correct args")
+
+-- 特定调用验证
+assert(vim.api.nvim_create_autocmd.calls[1].vals[1] == "VimLeavePre", "Expected VimLeavePre event")
+```
+
+## 测试设置和清理
+
+### before_each/after_each 模式
+```lua
+before_each(function()
+  -- 重置模拟对象状态
+  mock_server.stop.calls = {}
+  mock_lockfile.remove.calls = {}
+  
+  -- 设置必要的全局状态
+  vim.api = mock_vim_api
+end)
+
+after_each(function()
+  -- 恢复原始状态
+  vim.api = saved_vim_api
+  _G.require = saved_require
+end)
+```
+
+### 包重载模式
+```lua
+local function setup()
+  package.loaded["claudecode.config"] = nil
+  config = require("claudecode.config")
+end
+```
+
+## 手动测试 Fixture
+
+### Fixture 使用
+```bash
+# 使用不同的文件浏览器进行测试
+source fixtures/nvim-aliases.sh
+vv nvim-tree  # 使用 nvim-tree 集成测试
+vv oil        # 使用 oil.nvim 集成测试
+vv mini-files # 使用 mini.files 集成测试
+```
+
+### Fixture 架构
+每个 fixture 提供:
+- 完整的 Neovim 配置
+- 插件依赖
+- 开发键绑定
+- 特定集成的测试场景
+
+## 测试最佳实践
+
+1. **隔离测试**: 每个测试应该独立运行
+2. **明确断言**: 使用描述性的断言消息
+3. **模拟外部依赖**: 避免依赖真实的文件系统或网络
+4. **测试边界情况**: 包含错误情况和边界值
+5. **保持测试简单**: 每个测试应该只验证一个行为
+
+### 命令测试模式
+```lua
+it("should register command with correct configuration", function()
+  local claudecode = require("claudecode")
+  claudecode.setup({ auto_start = false })
+
+  local command_found = false
+  for _, call in ipairs(vim.api.nvim_create_user_command.calls) do
+    if call.vals[1] == "ClaudeCode" then
+      command_found = true
+      local config = call.vals[3]
+      assert.is_equal("*", config.nargs)
+      break
+    end
+  end
+  assert.is_true(command_found, "ClaudeCode command was not registered")
+end)
+```
