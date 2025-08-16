@@ -365,14 +365,14 @@ function M.setup(opts)
     if monitoring_setup_ok then
       -- 提取监控配置并初始化
       local monitoring_config = vim.deepcopy(M.state.config.monitoring)
-      monitoring_config.enabled = nil  -- 移除enabled字段，不传递给监控系统
-      monitoring_config.auto_start = nil  -- 移除auto_start字段
-      
+      monitoring_config.enabled = nil -- 移除enabled字段，不传递给监控系统
+      monitoring_config.auto_start = nil -- 移除auto_start字段
+
       local success = monitoring_module.setup(monitoring_config)
       if success then
         M.state.monitoring = monitoring_module
         logger.info("init", "Claude Code monitoring system initialized")
-        
+
         -- 如果auto_start启用且主系统已启动，激活监控适配器
         if M.state.config.monitoring.auto_start and M.state.server then
           M._activate_monitoring()
@@ -384,7 +384,6 @@ function M.setup(opts)
       logger.warn("init", "Monitoring system requested but not available: " .. tostring(monitoring_module))
     end
   end
-
 
   M.state.initialized = true
   return M
@@ -554,7 +553,7 @@ function M._activate_monitoring()
   else
     logger.error("init", "Failed to activate monitoring adapters")
   end
-  
+
   return success
 end
 
@@ -1104,9 +1103,9 @@ function M._create_commands()
       local state_name = status.current_state or "unknown"
       local state_display = {
         disconnected = "断开连接",
-        idle = "空闲", 
+        idle = "空闲",
         executing = "执行中",
-        completed = "已完成"
+        completed = "已完成",
       }
       print(string.format("Claude Code 监控状态: %s (%s)", state_display[state_name] or state_name, state_name))
       print(string.format("运行时间: %.1f秒", (status.uptime or 0) / 1000))
@@ -1134,8 +1133,7 @@ function M._create_commands()
       local history = M.state.monitoring.get_history(10)
       print("=== Claude Code 状态历史 (最近10条) ===")
       for i, entry in ipairs(history) do
-        print(string.format("%d. %s -> %s (%.2fms)", 
-          i, entry.from_state, entry.to_state, entry.duration))
+        print(string.format("%d. %s -> %s (%.2fms)", i, entry.from_state, entry.to_state, entry.duration))
       end
     else
       print("Claude Code 监控系统未启用")
@@ -1224,21 +1222,26 @@ M.open_with_model = function(additional_args)
 end
 
 M.select_and_resume_session = function(additional_args)
+  logger.debug("command", "select_and_resume_session called with args: " .. vim.inspect(additional_args))
+
   local session_manager = require("claudecode.session_manager")
   local sessions = session_manager.get_session_list()
-  
+
+  logger.debug("command", string.format("Found %d sessions", #sessions))
+
   if #sessions == 0 then
     logger.warn("command", "No Claude sessions found for current project")
+    vim.notify("No Claude sessions found for current project", vim.log.levels.WARN)
     return
   end
-  
+
   -- Try to use fzf-lua first, fallback to vim.ui.select
   local fzf_ok, fzf = pcall(require, "fzf-lua")
-  
+
   if fzf_ok then
     -- Use fzf-lua for better UI
     local entries = session_manager.format_sessions_for_fzf(sessions)
-    
+
     fzf.fzf_exec(function(cb)
       for _, entry in ipairs(entries) do
         cb(entry[1])
@@ -1265,47 +1268,70 @@ M.select_and_resume_session = function(additional_args)
                 break
               end
             end
-            
+
             if selected_session then
-              local resume_arg = "--resume " .. selected_session.id
+              -- Check if session is empty (only contains commands/meta messages)
+              if selected_session.is_empty then
+                logger.warn("command", "Cannot resume empty session: " .. selected_session.summary)
+                vim.notify("This session contains no conversation history and cannot be resumed", vim.log.levels.WARN)
+                return
+              end
+
+              -- Include --ide parameter for IDE integration when resuming
+              local resume_arg = "--ide --resume " .. selected_session.id
               local final_args = additional_args and (resume_arg .. " " .. additional_args) or resume_arg
-              
+
+              logger.debug("command", "Resuming session with args: " .. final_args)
+              logger.info("command", "Resuming session: " .. selected_session.summary)
+
               local terminal_ok, terminal = pcall(require, "claudecode.terminal")
               if terminal_ok then
                 terminal.simple_toggle({}, final_args)
+              else
+                logger.error("command", "Failed to load terminal module")
               end
             end
           end
-        end
-      }
+        end,
+      },
     })
   else
     -- Fallback to vim.ui.select
     local formatted_sessions, original_sessions = session_manager.format_sessions_for_select(sessions)
-    
+
     vim.ui.select(formatted_sessions, {
       prompt = "Select Claude session to resume:",
       format_item = function(item)
         return item
       end,
     }, function(choice, idx)
-      if not choice or idx <= 2 then  -- Skip header and separator lines
+      if not choice or idx <= 2 then -- Skip header and separator lines
         return -- User cancelled or selected header
       end
-      
-      local session_idx = idx - 2  -- Adjust for header lines
+
+      local session_idx = idx - 2 -- Adjust for header lines
       local selected_session = original_sessions[session_idx]
-      
+
       if not selected_session then
         logger.error("command", "Invalid session selection")
         return
       end
-      
+
+      -- Check if session is empty (only contains commands/meta messages)
+      if selected_session.is_empty then
+        logger.warn("command", "Cannot resume empty session: " .. selected_session.summary)
+        vim.notify("This session contains no conversation history and cannot be resumed", vim.log.levels.WARN)
+        return
+      end
+
       logger.info("command", "Resuming session: " .. selected_session.summary)
-      
-      local resume_arg = "--resume " .. selected_session.id
+
+      -- Include --ide parameter for IDE integration when resuming
+      local resume_arg = "--ide --resume " .. selected_session.id
       local final_args = additional_args and (resume_arg .. " " .. additional_args) or resume_arg
-      
+
+      logger.debug("command", "Resuming session with args: " .. final_args)
+
       local terminal_ok, terminal = pcall(require, "claudecode.terminal")
       if terminal_ok then
         terminal.simple_toggle({}, final_args)

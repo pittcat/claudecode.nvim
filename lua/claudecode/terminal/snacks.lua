@@ -46,7 +46,6 @@ local function setup_terminal_events(term_instance, config)
     if now - last_win_enter > event_throttle_ms then
       last_win_enter = now
 
-
       -- 在窗口进入时启动防闪烁模式
       local anti_flicker = require("claudecode.anti_flicker")
 
@@ -74,6 +73,15 @@ local function setup_terminal_events(term_instance, config)
   if config.auto_close then
     term_instance:on("TermClose", function()
       local exit_code = vim.v.event.status
+      logger.debug("terminal", "Terminal closing with exit code: " .. tostring(exit_code))
+
+      -- Try to capture last output from terminal buffer
+      if term_instance.buf and vim.api.nvim_buf_is_valid(term_instance.buf) then
+        local lines = vim.api.nvim_buf_get_lines(term_instance.buf, -50, -1, false)
+        local last_output = table.concat(lines, "\n")
+        logger.debug("terminal", "Last terminal output:\n" .. last_output)
+      end
+
       if exit_code ~= 0 then
         logger.error("terminal", "Claude exited with code " .. exit_code .. ".\nCheck for any errors.")
       end
@@ -218,8 +226,12 @@ function M.open(cmd_string, env_table, config, focus)
     return
   end
 
+  local logger = require("claudecode.logger")
+  logger.debug("snacks", "Creating new terminal with command: " .. cmd_string)
   local opts = build_opts(config, env_table, focus)
+  logger.debug("snacks", "Terminal options: " .. vim.inspect(opts))
   local term_instance = Snacks.terminal.open(cmd_string, opts)
+  logger.debug("snacks", "Terminal instance created: " .. tostring(term_instance ~= nil))
 
   if term_instance and term_instance:buf_valid() then
     -- 应用额外的防闪烁设置
@@ -309,6 +321,8 @@ function M.simple_toggle(cmd_string, env_table, config)
   end
 
   local logger = require("claudecode.logger")
+  logger.debug("snacks", "simple_toggle called with command: " .. cmd_string)
+  logger.debug("snacks", "Environment: " .. vim.inspect(env_table))
 
   -- Check if terminal exists and is visible
   if terminal and terminal:buf_valid() and terminal:win_valid() then

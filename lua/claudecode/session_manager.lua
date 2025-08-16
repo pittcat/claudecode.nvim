@@ -24,7 +24,7 @@ local function get_claude_config_dir()
   if claude_config_dir then
     return claude_config_dir
   end
-  
+
   local home = os.getenv("HOME")
   if home then
     local claude_dir = home .. "/.claude"
@@ -34,7 +34,7 @@ local function get_claude_config_dir()
       return claude_dir
     end
   end
-  
+
   return nil
 end
 
@@ -47,7 +47,7 @@ local function parse_session_file(file_path)
     logger.warn("session_manager", "Failed to open session file: " .. file_path)
     return nil
   end
-  
+
   local session_info = {
     id = "",
     summary = "",
@@ -55,24 +55,40 @@ local function parse_session_file(file_path)
     created_time = 0,
     git_branch = nil,
     message_count = 0,
-    file_path = file_path
+    file_path = file_path,
   }
-  
+
   -- Get file modification time
   local stat = vim.loop.fs_stat(file_path)
   if stat then
     session_info.modified_time = stat.mtime.sec
   end
-  
+
   local line_count = 0
   local first_user_message = nil
   local has_summary = false
-  
+  local has_real_messages = false -- Track if session has real conversation messages
+
   for line in file:lines() do
     line_count = line_count + 1
-    
+
     local ok, data = pcall(vim.json.decode, line)
     if ok and data then
+      -- Check for real conversation messages (not just meta or command messages)
+      if data.type == "assistant" or (data.type == "user" and not data.isMeta) then
+        local content = data.message and data.message.content
+        if content and type(content) == "string" then
+          -- Skip command outputs and meta messages
+          if
+            not content:find("<command%-name>")
+            and not content:find("<local%-command%-stdout>")
+            and not content:find("DO NOT respond to these messages")
+          then
+            has_real_messages = true
+          end
+        end
+      end
+
       -- Check for summary line (usually first line)
       if data.type == "summary" and data.summary then
         session_info.summary = data.summary
@@ -89,29 +105,37 @@ local function parse_session_file(file_path)
         if data.gitBranch then
           session_info.git_branch = data.gitBranch
         end
-        
+
         -- Extract first meaningful user message as fallback summary
-        if not first_user_message and data.type == "user" and data.message and data.message.content and not data.isMeta then
+        if
+          not first_user_message
+          and data.type == "user"
+          and data.message
+          and data.message.content
+          and not data.isMeta
+        then
           local content_text = ""
           if type(data.message.content) == "string" then
             content_text = data.message.content
           elseif type(data.message.content) == "table" and data.message.content[1] and data.message.content[1].text then
             content_text = data.message.content[1].text
           end
-          
+
           -- Skip auto-generated messages like caveats and IDE commands
-          if content_text and 
-             not content_text:find("Caveat:") and 
-             not content_text:find("<command%-name>") and
-             not content_text:find("DO NOT respond to these messages") and
-             #content_text > 10 then
+          if
+            content_text
+            and not content_text:find("Caveat:")
+            and not content_text:find("<command%-name>")
+            and not content_text:find("DO NOT respond to these messages")
+            and #content_text > 10
+          then
             first_user_message = content_text
           end
         end
       end
     end
   end
-  
+
   -- If no summary found, use first user message or default
   if not has_summary then
     if first_user_message then
@@ -124,10 +148,17 @@ local function parse_session_file(file_path)
       session_info.summary = "No summary available"
     end
   end
-  
+
   session_info.message_count = line_count
   file:close()
-  
+
+  -- Mark session as invalid if it only contains commands/meta messages without real conversation
+  if not has_real_messages and session_info.summary:find("<local%-command%-stdout>") then
+    session_info.summary = "[Empty Session] " .. session_info.summary
+    -- Add a flag to indicate this session is not resumable
+    session_info.is_empty = true
+  end
+
   return session_info
 end
 
@@ -139,33 +170,46 @@ function M.get_session_list()
     logger.error("session_manager", "Claude config directory not found")
     return {}
   end
-  
+
+  logger.debug("session_manager", "Claude config dir: " .. claude_config_dir)
+
   local cwd = vim.fn.getcwd()
-  
-  -- Convert path to Claude projects format (replace / with -)
-  -- Claude CLI also converts ".hidden" to "-hidden" (extra dash for dot prefixes)
-  local project_path = cwd:gsub("/", "-"):gsub("%-%.([^-]*)", "--%1")
+  logger.debug("session_manager", "Current working directory: " .. cwd)
+
+  -- Convert path to Claude projects format
+  -- First replace all slashes with dashes
+  local project_path = cwd:gsub("/", "-")
+  -- Handle all dots that come after dashes (e.g., "-.vim" -> "--vim", ".nvim" -> "-nvim")
+  -- Replace dots that follow dashes with an extra dash
+  project_path = project_path:gsub("%-%.([^%-%.]+)", "--%1")
+  -- Also handle remaining dots in filenames (e.g., "claudecode.nvim" -> "claudecode-nvim")
+  project_path = project_path:gsub("%.([^%-%.]+)", "-%1")
   local projects_dir = claude_config_dir .. "/projects/" .. project_path
-  
+
+  logger.debug("session_manager", "Looking for sessions in: " .. projects_dir)
+
   local stat = vim.loop.fs_stat(projects_dir)
   if not stat or stat.type ~= "directory" then
+    logger.debug("session_manager", "Primary project directory not found, looking for alternatives...")
     -- Try to find similar directory names in case of naming mismatches
     local claude_projects_dir = claude_config_dir .. "/projects/"
     local projects_handle = vim.loop.fs_scandir(claude_projects_dir)
     local found_alternative = nil
-    
+
     if projects_handle then
       local base_name = project_path:match("[^-]*-[^-]*-[^-]*-[^-]*-(.+)$") -- Extract last part
       if base_name then
         while true do
           local dir_name, dir_type = vim.loop.fs_scandir_next(projects_handle)
-          if not dir_name then break end
-          
+          if not dir_name then
+            break
+          end
+
           if dir_type == "directory" then
             -- Try both underscore and hyphen variations
             local base_with_hyphens = base_name:gsub("_", "-")
             local base_with_underscores = base_name:gsub("-", "_")
-            
+
             if dir_name:find(base_with_hyphens, 1, true) or dir_name:find(base_with_underscores, 1, true) then
               found_alternative = claude_projects_dir .. dir_name
               break
@@ -174,39 +218,50 @@ function M.get_session_list()
         end
       end
     end
-    
+
     if found_alternative then
+      logger.debug("session_manager", "Found alternative directory: " .. found_alternative)
       projects_dir = found_alternative
       stat = vim.loop.fs_stat(projects_dir)
     end
-    
+
     if not stat or stat.type ~= "directory" then
+      logger.debug("session_manager", "No valid project directory found, returning empty list")
       return {}
     end
   end
-  
+
   local sessions = {}
   local handle = vim.loop.fs_scandir(projects_dir)
   if handle then
+    logger.debug("session_manager", "Scanning directory for .jsonl files...")
     while true do
       local name, type = vim.loop.fs_scandir_next(handle)
-      if not name then break end
-      
+      if not name then
+        break
+      end
+
       if type == "file" and name:match("%.jsonl$") then
+        logger.debug("session_manager", "Found session file: " .. name)
         local file_path = projects_dir .. "/" .. name
         local session_info = parse_session_file(file_path)
         if session_info and session_info.id ~= "" then
+          logger.debug("session_manager", "Successfully parsed session: " .. session_info.summary)
           table.insert(sessions, session_info)
+        else
+          logger.debug("session_manager", "Failed to parse or invalid session file: " .. name)
         end
       end
     end
+  else
+    logger.debug("session_manager", "Failed to open projects directory for scanning")
   end
-  
+
   -- Sort sessions by modification time (newest first)
   table.sort(sessions, function(a, b)
     return a.modified_time > b.modified_time
   end)
-  
+
   return sessions
 end
 
@@ -216,7 +271,7 @@ end
 local function format_relative_time(timestamp)
   local now = os.time()
   local diff = now - timestamp
-  
+
   if diff < 3600 then -- Less than 1 hour
     local minutes = math.floor(diff / 60)
     if minutes < 1 then
@@ -265,10 +320,9 @@ function M.format_session_for_display(session)
   local created_time = format_relative_time(session.created_time)
   local branch = session.git_branch or "main"
   local summary = session.summary
-  
+
   -- Don't truncate summary in the new UI, let fzf handle it
-  return string.format("%-12s %-12s %3d %-15s %s", 
-    modified_time, created_time, session.message_count, branch, summary)
+  return string.format("%-12s %-12s %3d %-15s %s", modified_time, created_time, session.message_count, branch, summary)
 end
 
 --- Format session list for vim.ui.select
@@ -277,19 +331,21 @@ end
 --- @return SessionInfo[] sessions Original session list for reference
 function M.format_sessions_for_select(sessions)
   if #sessions == 0 then
-    return {"No sessions found for current project"}, {}
+    return { "No sessions found for current project" }, {}
   end
-  
+
   local formatted = {}
   -- Add header
-  table.insert(formatted, string.format("%-12s %-12s %3s %-15s %s", 
-    "Modified", "Created", "#", "Git Branch", "Summary"))
+  table.insert(
+    formatted,
+    string.format("%-12s %-12s %3s %-15s %s", "Modified", "Created", "#", "Git Branch", "Summary")
+  )
   table.insert(formatted, string.rep("-", 100))
-  
+
   for _, session in ipairs(sessions) do
     table.insert(formatted, M.format_session_for_display(session))
   end
-  
+
   return formatted, sessions
 end
 
@@ -300,26 +356,25 @@ function M.format_sessions_for_fzf(sessions)
   if #sessions == 0 then
     return {}
   end
-  
+
   local entries = {}
-  
+
   for i, session in ipairs(sessions) do
     local modified_time = format_relative_time(session.modified_time)
-    local created_time = format_relative_time(session.created_time) 
+    local created_time = format_relative_time(session.created_time)
     local branch = session.git_branch or "main"
     local summary = session.summary
-    
+
     -- Create fzf entry with structured data
     table.insert(entries, {
       -- Display text for fzf
-      string.format("%-12s %-12s %3d %-15s %s", 
-        modified_time, created_time, session.message_count, branch, summary),
+      string.format("%-12s %-12s %3d %-15s %s", modified_time, created_time, session.message_count, branch, summary),
       -- Associated session data
       session = session,
-      index = i
+      index = i,
     })
   end
-  
+
   return entries
 end
 

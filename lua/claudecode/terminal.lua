@@ -487,13 +487,19 @@ function M.setup(user_term_config, p_terminal_cmd, p_env, p_bin_path)
       if type(v) == "boolean" then
         defaults.fix_display_corruption = v
       else
-        vim.notify("claudecode.terminal.setup: Invalid value for fix_display_corruption: " .. tostring(v), vim.log.levels.WARN)
+        vim.notify(
+          "claudecode.terminal.setup: Invalid value for fix_display_corruption: " .. tostring(v),
+          vim.log.levels.WARN
+        )
       end
     elseif k == "auto_insert_mode" then
       if type(v) == "boolean" then
         defaults.auto_insert_mode = v
       else
-        vim.notify("claudecode.terminal.setup: Invalid value for auto_insert_mode: " .. tostring(v), vim.log.levels.WARN)
+        vim.notify(
+          "claudecode.terminal.setup: Invalid value for auto_insert_mode: " .. tostring(v),
+          vim.log.levels.WARN
+        )
       end
     elseif k == "bin_path" then
       if v == nil or type(v) == "string" then
@@ -572,8 +578,13 @@ end
 ---@param opts_override table? Overrides for terminal appearance (split_side, split_width_percentage).
 ---@param cmd_args string? Arguments to append to the claude command.
 function M.simple_toggle(opts_override, cmd_args)
+  local logger = require("claudecode.logger")
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = M.get_claude_command_and_env(cmd_args)
+
+  logger.debug("terminal", "simple_toggle called with cmd_args: " .. vim.inspect(cmd_args))
+  logger.debug("terminal", "Generated command: " .. cmd_string)
+  logger.debug("terminal", "Environment variables: " .. vim.inspect(claude_env_table))
 
   get_provider().simple_toggle(cmd_string, claude_env_table, effective_config)
 end
