@@ -1049,6 +1049,69 @@ function M._create_commands()
       desc = "Close the Claude Code terminal window",
     })
 
+    -- Add command to switch between different Claude command profiles
+    vim.api.nvim_create_user_command("ClaudeCodeSwitchCommand", function()
+      local config = require("claudecode.config").defaults
+      if not config.available_commands or #config.available_commands <= 1 then
+        vim.notify("Only one command available. Add more to available_commands in your setup.", vim.log.levels.INFO)
+        return
+      end
+
+      vim.ui.select(config.available_commands, {
+        prompt = "Select Claude command:",
+        format_item = function(item)
+          local current_index = config.active_command_index or 1
+          local item_index = nil
+          for i, cmd in ipairs(config.available_commands) do
+            if cmd == item then
+              item_index = i
+              break
+            end
+          end
+
+          if item_index == current_index then
+            return "▸ " .. item.name .. " (active)"
+          end
+          return "  " .. item.name
+        end,
+      }, function(choice)
+        if not choice then
+          return -- User cancelled
+        end
+
+        -- Find the index of the selected choice
+        for i, cmd in ipairs(config.available_commands) do
+          if cmd == choice then
+            config.active_command_index = i
+            vim.notify("Switched to: " .. choice.name, vim.log.levels.INFO)
+            break
+          end
+        end
+      end)
+    end, {
+      desc = "Switch between different Claude commands",
+    })
+
+    -- Add command to show current command configuration
+    vim.api.nvim_create_user_command("ClaudeCodeShowCommand", function()
+      local config = require("claudecode.config").defaults
+
+      if config.available_commands and config.active_command_index then
+        local active_cmd = config.available_commands[config.active_command_index]
+        if active_cmd then
+          local info = "Active command: " .. active_cmd.name .. "\n"
+          info = info .. "Command: " .. active_cmd.cmd .. "\n"
+          vim.notify(info, vim.log.levels.INFO)
+        else
+          vim.notify("Active command index out of range: " .. config.active_command_index, vim.log.levels.WARN)
+        end
+      else
+        vim.notify("Using default Claude command", vim.log.levels.INFO)
+      end
+    end, {
+      desc = "Show current Claude command configuration",
+    })
+
     vim.api.nvim_create_user_command("ClaudeCodeUnsafe", function(opts)
       local current_mode = vim.fn.mode()
       if current_mode == "v" or current_mode == "V" or current_mode == "\22" then

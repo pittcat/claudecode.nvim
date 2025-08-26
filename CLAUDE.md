@@ -494,6 +494,8 @@ Log levels for authentication events:
 - `:ClaudeCodeSelectSession` - Open session selection interface to resume from specific Claude CLI session
 - `:ClaudeCodeDiffAccept` - Accept diff changes
 - `:ClaudeCodeDiffDeny` - Reject diff changes
+- `:ClaudeCodeSwitchCommand` - Switch between different Claude command profiles
+- `:ClaudeCodeShowCommand` - Show current Claude command configuration
 
 ### Configuration Options
 
@@ -506,6 +508,40 @@ Key configuration options available in `require("claudecode").setup({})`:
 - `terminal.auto_insert_mode` - Auto enter insert mode when switching to terminal
 - `track_selection` - Enable real-time selection tracking (default: true)
 - `diff_opts.vertical_split` - Use vertical split for diffs (default: true)
+- `available_commands` - Available Claude commands (array of {name, cmd} tables)
+- `active_command_index` - Index of active command (1-based, defaults to 1)
+
+### Multiple Claude Commands
+
+The plugin supports multiple Claude commands, allowing you to switch between official Claude and custom implementations (like shell aliases or different executables):
+
+```lua
+require("claudecode").setup({
+  -- Available Claude commands (uses shell aliases/executables)
+  available_commands = {
+    { name = "Official Claude", cmd = "claude" },
+    { name = "CC Copilot", cmd = "cc-copilot" },
+    { name = "Claude Dev", cmd = "claude-dev" },
+    -- Add more commands as needed
+  },
+  active_command_index = 2,  -- Use CC Copilot by default (1-based index)
+})
+```
+
+**Usage**:
+
+1. **Switch between commands**: `:ClaudeCodeSwitchCommand` - Opens a selection menu
+2. **Show current command**: `:ClaudeCodeShowCommand` - Displays active configuration
+3. **Set default command**: Set `active_command_index` in setup to use a specific command by default
+
+**Example with shell alias**:
+
+If you have a shell alias like:
+```bash
+alias cc-copilot='ANTHROPIC_BASE_URL="http://localhost:4141" ANTHROPIC_AUTH_TOKEN="dummy" ANTHROPIC_MODEL="gpt-5-mini" ANTHROPIC_SMALL_FAST_MODEL="gpt-5-mini" claude'
+```
+
+Just add it to your `available_commands` and the plugin will use the shell alias directly. No need to configure environment variables in the plugin - the shell handles that.
 
 ### Security Considerations
 
@@ -826,6 +862,13 @@ This branch includes additional features beyond the main branch:
 
 5. **Enhanced Tools**
    - `save_document` includes buffer refresh functionality via `utils.refresh_buffers`
+
+6. **Multiple Claude Commands Support** - Switch between different Claude implementations
+   - Configuration: `available_commands` array with `{name, cmd}` objects
+   - Runtime switching: `active_command_index` (1-based indexing)
+   - Commands: `ClaudeCodeSwitchCommand`, `ClaudeCodeShowCommand`
+   - Supports shell aliases, custom executables, and local installations
+   - Automatic fallback to default Claude if custom command fails
 
 **Note**: These features are experimental and may be merged into main branch in future releases.
 

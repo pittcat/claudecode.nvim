@@ -1,10 +1,10 @@
---- 终端进程监控适配器  
+--- 终端进程监控适配器
 -- 监控Claude Code终端进程的生命周期和状态
 -- @module claudecode.monitoring.terminal_monitor
 
+local event_listener = require("claudecode.monitoring.event_listener")
 local logger = require("claudecode.logger")
 local state_manager = require("claudecode.monitoring.state_manager")
-local event_listener = require("claudecode.monitoring.event_listener")
 
 local M = {}
 
@@ -19,7 +19,7 @@ local process_tracking = {
   active_processes = {},
   process_history = {},
   terminal_instances = {},
-  total_processes = 0
+  total_processes = 0,
 }
 
 --- 终端实例信息
@@ -59,17 +59,17 @@ end
 --- @param instance_info TerminalInstanceInfo 实例信息
 local function record_terminal_instance(instance_info)
   process_tracking.terminal_instances[instance_info.instance_id] = instance_info
-  
-  logger.info("monitoring", string.format(
-    "Terminal instance created: %s (provider: %s)",
-    instance_info.instance_id, instance_info.provider
-  ))
-  
+
+  logger.info(
+    "monitoring",
+    string.format("Terminal instance created: %s (provider: %s)", instance_info.instance_id, instance_info.provider)
+  )
+
   -- 触发事件
   event_listener.emit("terminal_instance_created", {
     instance_id = instance_info.instance_id,
     provider = instance_info.provider,
-    created_at = instance_info.created_at
+    created_at = instance_info.created_at,
   })
 end
 
@@ -78,19 +78,24 @@ end
 local function record_process_start(process_info)
   process_tracking.active_processes[process_info.process_id] = process_info
   process_tracking.total_processes = process_tracking.total_processes + 1
-  
-  logger.info("monitoring", string.format(
-    "Process started: %s (job_id: %d, command: %s)",
-    process_info.process_id, process_info.job_id, process_info.command
-  ))
-  
+
+  logger.info(
+    "monitoring",
+    string.format(
+      "Process started: %s (job_id: %d, command: %s)",
+      process_info.process_id,
+      process_info.job_id,
+      process_info.command
+    )
+  )
+
   -- 触发事件
   event_listener.emit("terminal_process_started", {
     process_id = process_info.process_id,
     job_id = process_info.job_id,
     instance_id = process_info.instance_id,
     command = process_info.command,
-    start_time = process_info.start_time
+    start_time = process_info.start_time,
   })
 end
 
@@ -103,32 +108,32 @@ local function record_process_end(process_id, exit_code)
     logger.warn("terminal_monitor", "Process end recorded for unknown process: " .. process_id)
     return
   end
-  
+
   local end_time = vim.loop.hrtime() / 1000000
   process_info.end_time = end_time
   process_info.exit_code = exit_code
   process_info.duration = end_time - process_info.start_time
-  
+
   -- 移动到历史记录
   table.insert(process_tracking.process_history, vim.deepcopy(process_info))
   process_tracking.active_processes[process_id] = nil
-  
+
   -- 限制历史记录长度
   if #process_tracking.process_history > 100 then
     table.remove(process_tracking.process_history, 1)
   end
-  
+
   -- 更新相关终端实例状态
   local instance_info = process_tracking.terminal_instances[process_info.instance_id]
   if instance_info then
     instance_info.status = exit_code == 0 and "exited" or "error"
   end
-  
-  logger.info("monitoring", string.format(
-    "Process ended: %s (exit_code: %d, duration: %.2fms)",
-    process_id, exit_code, process_info.duration
-  ))
-  
+
+  logger.info(
+    "monitoring",
+    string.format("Process ended: %s (exit_code: %d, duration: %.2fms)", process_id, exit_code, process_info.duration)
+  )
+
   -- 触发事件
   event_listener.emit(event_listener.Events.TERMINAL_PROCESS_EXITED, {
     process_id = process_id,
@@ -137,9 +142,9 @@ local function record_process_end(process_id, exit_code)
     exit_code = exit_code,
     duration = process_info.duration,
     end_time = end_time,
-    command = process_info.command
+    command = process_info.command,
   })
-  
+
   -- 如果是Claude Code进程结束，可能需要更新全局状态
   if process_info.command and string.find(process_info.command, "claude") then
     -- 检查是否还有其他Claude进程在运行
@@ -150,7 +155,7 @@ local function record_process_end(process_id, exit_code)
         break
       end
     end
-    
+
     if not has_active_claude then
       -- 没有活跃的Claude进程，可能需要更新连接状态
       -- 这里可以与WebSocket监控协调
@@ -166,21 +171,21 @@ local function wrap_native_termopen(original_termopen, instance_id)
   return function(cmd, opts)
     local original_on_exit = opts.on_exit
     local process_id = generate_process_id()
-    
+
     -- 包装退出回调
     opts.on_exit = function(job_id, exit_code, event_type)
       -- 记录进程结束
       record_process_end(process_id, exit_code)
-      
+
       -- 调用原始回调
       if original_on_exit then
         original_on_exit(job_id, exit_code, event_type)
       end
     end
-    
+
     -- 调用原始termopen
     local job_id = original_termopen(cmd, opts)
-    
+
     if job_id > 0 then
       -- 记录进程开始
       record_process_start({
@@ -188,15 +193,15 @@ local function wrap_native_termopen(original_termopen, instance_id)
         job_id = job_id,
         instance_id = instance_id,
         command = type(cmd) == "table" and table.concat(cmd, " ") or cmd,
-        start_time = vim.loop.hrtime() / 1000000
+        start_time = vim.loop.hrtime() / 1000000,
       })
     else
-      logger.error("terminal_monitor", string.format(
-        "Failed to start terminal process: %s (job_id: %d)", 
-        tostring(cmd), job_id
-      ))
+      logger.error(
+        "terminal_monitor",
+        string.format("Failed to start terminal process: %s (job_id: %d)", tostring(cmd), job_id)
+      )
     end
-    
+
     return job_id
   end
 end
@@ -207,7 +212,7 @@ end
 local function wrap_native_open(original_open)
   return function(cmd_string, env_table, effective_config, focus)
     local instance_id = generate_instance_id()
-    
+
     -- 记录终端实例创建
     record_terminal_instance({
       instance_id = instance_id,
@@ -216,19 +221,19 @@ local function wrap_native_open(original_open)
       window_id = nil, -- 将在创建后设置
       created_at = vim.loop.hrtime() / 1000000,
       status = "active",
-      provider = "native"
+      provider = "native",
     })
-    
+
     -- 暂时保存vim.fn.termopen的引用并包装它
     local original_vim_termopen = vim.fn.termopen
     vim.fn.termopen = wrap_native_termopen(original_vim_termopen, instance_id)
-    
+
     -- 调用原始open函数
     local result = original_open(cmd_string, env_table, effective_config, focus)
-    
+
     -- 恢复原始termopen
     vim.fn.termopen = original_vim_termopen
-    
+
     return result
   end
 end
@@ -239,7 +244,7 @@ end
 local function wrap_snacks_open(original_open)
   return function(cmd_string, env_table, config, focus)
     local instance_id = generate_instance_id()
-    
+
     -- 记录终端实例创建
     record_terminal_instance({
       instance_id = instance_id,
@@ -248,16 +253,14 @@ local function wrap_snacks_open(original_open)
       window_id = nil,
       created_at = vim.loop.hrtime() / 1000000,
       status = "active",
-      provider = "snacks"
+      provider = "snacks",
     })
-    
-    logger.debug("monitoring", string.format(
-      "Terminal instance created: %s (provider: snacks)", instance_id
-    ))
-    
+
+    logger.debug("monitoring", string.format("Terminal instance created: %s (provider: snacks)", instance_id))
+
     -- 调用原始open函数，传递正确的参数
     local result = original_open(cmd_string, env_table, config, focus)
-    
+
     return result
   end
 end
@@ -270,34 +273,38 @@ function M.setup(terminal_mod)
     logger.warn("terminal_monitor", "Terminal process monitoring already setup")
     return false
   end
-  
+
   if not terminal_mod then
     logger.error("terminal_monitor", "Terminal module reference required")
     return false
   end
-  
+
   terminal_module = terminal_mod
-  
+
   -- 监控native终端提供者
   local native_provider = require("claudecode.terminal.native")
   if native_provider and native_provider.open then
     local original_native_open = native_provider.open
     native_provider.open = wrap_native_open(original_native_open)
   end
-  
+
   -- 监控snacks终端提供者（如果可用）
   local snacks_available, snacks_provider = pcall(require, "claudecode.terminal.snacks")
   if snacks_available and snacks_provider and snacks_provider.open then
     local original_snacks_open = snacks_provider.open
     snacks_provider.open = wrap_snacks_open(original_snacks_open)
   end
-  
+
   -- 定期检查进程健康状态
   local health_check_timer = vim.loop.new_timer()
-  health_check_timer:start(30000, 30000, vim.schedule_wrap(function()
-    M.check_process_health()
-  end)) -- 每30秒检查一次
-  
+  health_check_timer:start(
+    30000,
+    30000,
+    vim.schedule_wrap(function()
+      M.check_process_health()
+    end)
+  ) -- 每30秒检查一次
+
   monitoring_setup = true
   return true
 end
@@ -306,7 +313,7 @@ end
 function M.check_process_health()
   local now = vim.loop.hrtime() / 1000000
   local issues = {}
-  
+
   -- 检查长时间运行的进程
   for process_id, process_info in pairs(process_tracking.active_processes) do
     local runtime = now - process_info.start_time
@@ -315,24 +322,23 @@ function M.check_process_health()
         type = "long_running_process",
         process_id = process_id,
         runtime = runtime,
-        message = string.format("进程运行时间过长: %s (%.2f小时)", 
-          process_id, runtime / 3600000)
+        message = string.format("进程运行时间过长: %s (%.2f小时)", process_id, runtime / 3600000),
       })
     end
   end
-  
+
   -- 检查僵尸终端实例 (已禁用长时间未活动警告)
   -- 终端可能会长时间保持连接状态，这是正常的，不需要发出警告
-  
+
   -- 如果有问题，记录并触发事件
   if #issues > 0 then
     for _, issue in ipairs(issues) do
       logger.warn("terminal_monitor", issue.message)
     end
-    
+
     event_listener.emit("terminal_health_issues", {
       issues = issues,
-      check_time = now
+      check_time = now,
     })
   end
 end
@@ -343,20 +349,20 @@ function M.get_process_stats()
   local active_count = vim.tbl_count(process_tracking.active_processes)
   local completed_count = #process_tracking.process_history
   local instance_count = vim.tbl_count(process_tracking.terminal_instances)
-  
+
   -- 计算平均运行时间
   local total_duration = 0
   local duration_count = 0
-  
+
   for _, process in ipairs(process_tracking.process_history) do
     if process.duration then
       total_duration = total_duration + process.duration
       duration_count = duration_count + 1
     end
   end
-  
+
   local avg_duration = duration_count > 0 and (total_duration / duration_count) or 0
-  
+
   return {
     total_processes = process_tracking.total_processes,
     active_processes = active_count,
@@ -364,7 +370,7 @@ function M.get_process_stats()
     terminal_instances = instance_count,
     average_process_duration = avg_duration,
     active_process_details = vim.deepcopy(process_tracking.active_processes),
-    recent_processes = vim.list_slice(process_tracking.process_history, -10)
+    recent_processes = vim.list_slice(process_tracking.process_history, -10),
   }
 end
 
@@ -374,7 +380,7 @@ function M.get_instance_stats()
   local active_instances = 0
   local exited_instances = 0
   local error_instances = 0
-  
+
   for _, instance in pairs(process_tracking.terminal_instances) do
     if instance.status == "active" then
       active_instances = active_instances + 1
@@ -384,13 +390,13 @@ function M.get_instance_stats()
       error_instances = error_instances + 1
     end
   end
-  
+
   return {
     total_instances = vim.tbl_count(process_tracking.terminal_instances),
     active_instances = active_instances,
     exited_instances = exited_instances,
     error_instances = error_instances,
-    instance_details = vim.deepcopy(process_tracking.terminal_instances)
+    instance_details = vim.deepcopy(process_tracking.terminal_instances),
   }
 end
 
@@ -401,7 +407,7 @@ function M.get_status()
     monitoring_active = monitoring_setup,
     terminal_module_loaded = terminal_module ~= nil,
     process_stats = M.get_process_stats(),
-    instance_stats = M.get_instance_stats()
+    instance_stats = M.get_instance_stats(),
   }
 end
 
@@ -413,17 +419,16 @@ function M.kill_process(process_id)
   if not process_info then
     return false
   end
-  
+
   local success = vim.fn.jobstop(process_info.job_id)
   if success == 1 then
-    logger.info("monitoring", string.format(
-      "Process killed: %s (job_id: %d)", process_id, process_info.job_id
-    ))
+    logger.info("monitoring", string.format("Process killed: %s (job_id: %d)", process_id, process_info.job_id))
     return true
   else
-    logger.error("terminal_monitor", string.format(
-      "Failed to kill process: %s (job_id: %d)", process_id, process_info.job_id
-    ))
+    logger.error(
+      "terminal_monitor",
+      string.format("Failed to kill process: %s (job_id: %d)", process_id, process_info.job_id)
+    )
     return false
   end
 end
@@ -434,9 +439,8 @@ function M.reset()
     active_processes = {},
     process_history = {},
     terminal_instances = {},
-    total_processes = 0
+    total_processes = 0,
   }
-  
 end
 
 --- 健康检查
@@ -446,19 +450,19 @@ function M.health_check()
   if not monitoring_setup then
     return false, "终端进程监控未设置"
   end
-  
+
   if not terminal_module then
     return false, "终端模块引用丢失"
   end
-  
+
   local now = vim.loop.hrtime() / 1000000
-  
+
   -- 检查是否有太多活跃进程
   local active_count = vim.tbl_count(process_tracking.active_processes)
   if active_count > 10 then
     return false, string.format("活跃进程数量过多: %d", active_count)
   end
-  
+
   -- 检查是否有长时间运行的进程
   for _, process_info in pairs(process_tracking.active_processes) do
     local runtime = now - process_info.start_time
@@ -466,7 +470,7 @@ function M.health_check()
       return false, string.format("进程运行时间过长: %.2f小时", runtime / 3600000)
     end
   end
-  
+
   return true
 end
 

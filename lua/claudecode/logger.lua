@@ -19,7 +19,7 @@ local level_values = {
   trace = M.levels.TRACE,
 }
 
-local current_log_level_value = M.levels.WARN  -- 默认使用WARN级别，直到用户配置
+local current_log_level_value = M.levels.WARN -- 默认使用WARN级别，直到用户配置
 
 -- 指定一个明确的日志文件路径
 local log_file_path = "/tmp/claudecode_debug.log"

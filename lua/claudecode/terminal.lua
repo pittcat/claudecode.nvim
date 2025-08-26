@@ -308,13 +308,26 @@ end
 ---@return string cmd_string The command string
 ---@return table env_table The environment variables table
 function M.get_claude_command_and_env(cmd_args)
-  -- Inline get_claude_command logic
-  local cmd_from_config = defaults.terminal_cmd
+  local config = require("claudecode.config").defaults
   local base_cmd
-  if not cmd_from_config or cmd_from_config == "" then
-    base_cmd = defaults.bin_path or "claude" -- Use bin_path if terminal_cmd not configured
+
+  -- Get command from available_commands based on active_command_index
+  if config and config.available_commands and config.active_command_index then
+    local active_cmd = config.available_commands[config.active_command_index]
+    if active_cmd then
+      base_cmd = active_cmd.cmd
+    else
+      -- Fallback if index is out of range
+      base_cmd = defaults.bin_path or "claude"
+    end
   else
-    base_cmd = cmd_from_config
+    -- Use default command logic
+    local cmd_from_config = defaults.terminal_cmd
+    if not cmd_from_config or cmd_from_config == "" then
+      base_cmd = defaults.bin_path or "claude" -- Use bin_path if terminal_cmd not configured
+    else
+      base_cmd = cmd_from_config
+    end
   end
 
   local cmd_string

@@ -12,7 +12,7 @@ describe("Logger", function()
 
   local function setup()
     package.loaded["claudecode.logger"] = nil
-    
+
     -- Reset tracking arrays
     scheduled_calls = {}
     notify_calls = {}

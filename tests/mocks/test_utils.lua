@@ -197,19 +197,21 @@ function M.wait_for_condition(condition, timeout, interval)
   timeout = timeout or 1000
   interval = interval or 10
   local start_time = os.clock()
-  
+
   while (os.clock() - start_time) * 1000 < timeout do
     if condition() then
       return true
     end
     -- Small sleep to prevent busy waiting
     if vim and vim.wait then
-      vim.wait(interval, function() return false end)
+      vim.wait(interval, function()
+        return false
+      end)
     else
       os.execute("sleep " .. (interval / 1000))
     end
   end
-  
+
   return false
 end
 

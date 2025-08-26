@@ -2,9 +2,9 @@
 -- 监控WebSocket服务器的连接状态和消息处理
 -- @module claudecode.monitoring.websocket_monitor
 
+local event_listener = require("claudecode.monitoring.event_listener")
 local logger = require("claudecode.logger")
 local state_manager = require("claudecode.monitoring.state_manager")
-local event_listener = require("claudecode.monitoring.event_listener")
 
 local M = {}
 
@@ -18,14 +18,14 @@ local server_module = nil
 local connection_tracking = {
   active_connections = {},
   connection_history = {},
-  last_activity = 0
+  last_activity = 0,
 }
 
 --- 消息处理跟踪
 local message_tracking = {
   active_requests = {},
   request_history = {},
-  total_messages = 0
+  total_messages = 0,
 }
 
 --- 获取连接信息
@@ -36,7 +36,7 @@ local function get_connection_info(client)
     id = client.id,
     connected_at = vim.loop.hrtime() / 1000000,
     address = client.address or "unknown",
-    user_agent = client.user_agent or "unknown"
+    user_agent = client.user_agent or "unknown",
   }
 end
 
@@ -46,16 +46,16 @@ end
 --- @param details table|nil 详细信息
 local function record_activity(activity_type, client_id, details)
   connection_tracking.last_activity = vim.loop.hrtime() / 1000000
-  
+
   local activity = {
     type = activity_type,
     client_id = client_id,
     timestamp = connection_tracking.last_activity,
-    details = details or {}
+    details = details or {},
   }
-  
+
   table.insert(connection_tracking.connection_history, activity)
-  
+
   -- 限制历史记录长度
   if #connection_tracking.connection_history > 100 then
     table.remove(connection_tracking.connection_history, 1)
@@ -68,21 +68,21 @@ end
 local function wrap_connect_callback(original_callback)
   return function(client)
     local client_info = get_connection_info(client)
-    
+
     -- 记录连接信息
     connection_tracking.active_connections[client.id] = client_info
     record_activity("connect", client.id, client_info)
-    
+
     -- 更新状态管理器
     state_manager.add_client(client.id, client_info)
-    
+
     -- 触发事件
     event_listener.emit(event_listener.Events.CONNECTION_ESTABLISHED, {
       client_id = client.id,
       client_info = client_info,
-      total_connections = vim.tbl_count(connection_tracking.active_connections)
+      total_connections = vim.tbl_count(connection_tracking.active_connections),
     })
-    
+
     -- 调用原始回调
     if original_callback then
       original_callback(client)
@@ -96,30 +96,29 @@ end
 local function wrap_disconnect_callback(original_callback)
   return function(client, code, reason)
     local client_info = connection_tracking.active_connections[client.id]
-    
+
     -- 记录断开信息
     record_activity("disconnect", client.id, {
       code = code,
       reason = reason,
-      duration = client_info and 
-        (vim.loop.hrtime() / 1000000 - client_info.connected_at) or 0
+      duration = client_info and (vim.loop.hrtime() / 1000000 - client_info.connected_at) or 0,
     })
-    
+
     -- 清除连接跟踪
     connection_tracking.active_connections[client.id] = nil
-    
+
     -- 更新状态管理器
     state_manager.remove_client(client.id, reason)
-    
+
     -- 触发事件
     event_listener.emit(event_listener.Events.CONNECTION_LOST, {
       client_id = client.id,
       client_info = client_info,
       code = code,
       reason = reason,
-      remaining_connections = vim.tbl_count(connection_tracking.active_connections)
+      remaining_connections = vim.tbl_count(connection_tracking.active_connections),
     })
-    
+
     -- 调用原始回调
     if original_callback then
       original_callback(client, code, reason)
@@ -134,46 +133,42 @@ local function wrap_message_callback(original_callback)
   return function(client, message)
     local request_id = generate_request_id()
     local timestamp = vim.loop.hrtime() / 1000000
-    
+
     -- 解析消息获取方法和ID
     local parsed_message = nil
     local success, result = pcall(vim.json.decode, message)
     if success then
       parsed_message = result
     end
-    
+
     local method = parsed_message and parsed_message.method or "unknown"
     local msg_id = parsed_message and parsed_message.id
-    
+
     -- 记录请求开始
     message_tracking.active_requests[request_id] = {
       client_id = client.id,
       method = method,
       message_id = msg_id,
       start_time = timestamp,
-      message_size = #message
+      message_size = #message,
     }
-    
+
     message_tracking.total_messages = message_tracking.total_messages + 1
-    
+
     -- 如果是工具调用，更新状态为执行中
     if method == "tools/call" then
-      state_manager.set_state(
-        state_manager.States.EXECUTING,
-        state_manager.OperationTypes.TOOL_CALL,
-        {
-          client_id = client.id,
-          method = method,
-          message_id = msg_id,
-          request_id = request_id
-        }
-      )
-      
+      state_manager.set_state(state_manager.States.EXECUTING, state_manager.OperationTypes.TOOL_CALL, {
+        client_id = client.id,
+        method = method,
+        message_id = msg_id,
+        request_id = request_id,
+      })
+
       event_listener.emit(event_listener.Events.EXECUTION_STARTED, {
         client_id = client.id,
         method = method,
         message_id = msg_id,
-        request_id = request_id
+        request_id = request_id,
       })
     else
       -- 其他请求类型
@@ -181,21 +176,21 @@ local function wrap_message_callback(original_callback)
         client_id = client.id,
         method = method,
         message_id = msg_id,
-        request_id = request_id
+        request_id = request_id,
       })
     end
-    
+
     -- 调用原始回调
     if original_callback then
       original_callback(client, message)
     end
-    
+
     -- 记录请求完成（简化处理，实际应该在响应发送后）
     vim.schedule(function()
       local request_info = message_tracking.active_requests[request_id]
       if request_info then
         local duration = vim.loop.hrtime() / 1000000 - request_info.start_time
-        
+
         -- 移到历史记录
         table.insert(message_tracking.request_history, {
           request_id = request_id,
@@ -203,37 +198,33 @@ local function wrap_message_callback(original_callback)
           method = method,
           message_id = msg_id,
           duration = duration,
-          completed_at = vim.loop.hrtime() / 1000000
+          completed_at = vim.loop.hrtime() / 1000000,
         })
-        
+
         message_tracking.active_requests[request_id] = nil
-        
+
         -- 限制历史记录长度
         if #message_tracking.request_history > 200 then
           table.remove(message_tracking.request_history, 1)
         end
-        
+
         -- 如果是工具调用完成，更新状态为idle
         if method == "tools/call" then
-          state_manager.set_state(
-            state_manager.States.IDLE,
-            state_manager.OperationTypes.TOOL_CALL,
-            {
-              client_id = client.id,
-              method = method,
-              message_id = msg_id,
-              request_id = request_id,
-              duration = duration,
-              reason = "websocket_tool_call_completed"
-            }
-          )
-          
+          state_manager.set_state(state_manager.States.IDLE, state_manager.OperationTypes.TOOL_CALL, {
+            client_id = client.id,
+            method = method,
+            message_id = msg_id,
+            request_id = request_id,
+            duration = duration,
+            reason = "websocket_tool_call_completed",
+          })
+
           event_listener.emit(event_listener.Events.EXECUTION_COMPLETED, {
             client_id = client.id,
             method = method,
             message_id = msg_id,
             request_id = request_id,
-            duration = duration
+            duration = duration,
           })
         else
           event_listener.emit(event_listener.Events.REQUEST_COMPLETED, {
@@ -241,7 +232,7 @@ local function wrap_message_callback(original_callback)
             method = method,
             message_id = msg_id,
             request_id = request_id,
-            duration = duration
+            duration = duration,
           })
         end
       end
@@ -251,7 +242,7 @@ end
 
 --- 生成请求ID
 --- @return string request_id 请求标识符
-function generate_request_id() 
+function generate_request_id()
   return "req_" .. tostring(vim.loop.hrtime())
 end
 
@@ -263,20 +254,20 @@ function M.setup(server_mod)
     logger.warn("websocket_monitor", "WebSocket monitoring already setup")
     return false
   end
-  
+
   if not server_mod then
     logger.error("websocket_monitor", "Server module reference required")
     return false
   end
-  
+
   server_module = server_mod
-  
+
   -- 重写服务器启动函数以注入监控
   local original_start = server_module.start
   server_module.start = function(config, auth_token)
     -- 调用原始启动函数
     local success, result = original_start(config, auth_token)
-    
+
     if success then
       -- 启动成功后，包装服务器的内部方法
       local original_handle_message = server_module._handle_message
@@ -288,28 +279,28 @@ function M.setup(server_mod)
             local client_info = get_connection_info(client)
             connection_tracking.active_connections[client.id] = client_info
             record_activity("connect", client.id, client_info)
-            
+
             -- 更新状态管理器
             state_manager.add_client(client.id, client_info)
-            
+
             -- 触发连接建立事件
             event_listener.emit(event_listener.Events.CONNECTION_ESTABLISHED, {
               client_id = client.id,
               client_info = client_info,
-              total_connections = vim.tbl_count(connection_tracking.active_connections)
+              total_connections = vim.tbl_count(connection_tracking.active_connections),
             })
           end
-          
+
           -- 包装消息处理逻辑
           local wrapped_message_handler = wrap_message_callback(original_handle_message)
           return wrapped_message_handler(client, message)
         end
       end
     end
-    
+
     return success, result
   end
-  
+
   monitoring_setup = true
   return true
 end
@@ -322,7 +313,7 @@ function M.get_connection_stats()
     connection_details = vim.deepcopy(connection_tracking.active_connections),
     total_connection_events = #connection_tracking.connection_history,
     last_activity = connection_tracking.last_activity,
-    connection_history = vim.deepcopy(connection_tracking.connection_history)
+    connection_history = vim.deepcopy(connection_tracking.connection_history),
   }
 end
 
@@ -331,27 +322,27 @@ end
 function M.get_message_stats()
   local active_count = vim.tbl_count(message_tracking.active_requests)
   local completed_count = #message_tracking.request_history
-  
+
   -- 计算平均响应时间
   local total_duration = 0
   local duration_count = 0
-  
+
   for _, request in ipairs(message_tracking.request_history) do
     if request.duration then
       total_duration = total_duration + request.duration
       duration_count = duration_count + 1
     end
   end
-  
+
   local avg_duration = duration_count > 0 and (total_duration / duration_count) or 0
-  
+
   return {
     total_messages = message_tracking.total_messages,
     active_requests = active_count,
     completed_requests = completed_count,
     average_response_time = avg_duration,
     active_request_details = vim.deepcopy(message_tracking.active_requests),
-    request_history = vim.deepcopy(message_tracking.request_history)
+    request_history = vim.deepcopy(message_tracking.request_history),
   }
 end
 
@@ -362,7 +353,7 @@ function M.get_status()
     monitoring_active = monitoring_setup,
     server_module_loaded = server_module ~= nil,
     connection_stats = M.get_connection_stats(),
-    message_stats = M.get_message_stats()
+    message_stats = M.get_message_stats(),
   }
 end
 
@@ -371,13 +362,13 @@ function M.reset()
   connection_tracking = {
     active_connections = {},
     connection_history = {},
-    last_activity = 0
+    last_activity = 0,
   }
-  
+
   message_tracking = {
     active_requests = {},
     request_history = {},
-    total_messages = 0
+    total_messages = 0,
   }
 end
 
@@ -388,19 +379,19 @@ function M.health_check()
   if not monitoring_setup then
     return false, "监控未设置"
   end
-  
+
   if not server_module then
     return false, "服务器模块引用丢失"
   end
-  
+
   local now = vim.loop.hrtime() / 1000000
   local last_activity_age = now - connection_tracking.last_activity
-  
+
   -- 检查是否有长时间未活动的连接
   if vim.tbl_count(connection_tracking.active_connections) > 0 and last_activity_age > 300000 then -- 5分钟
     return false, "连接长时间无活动 (>5min)"
   end
-  
+
   -- 检查是否有卡住的请求
   local stuck_requests = 0
   for _, request in pairs(message_tracking.active_requests) do
@@ -409,11 +400,11 @@ function M.health_check()
       stuck_requests = stuck_requests + 1
     end
   end
-  
+
   if stuck_requests > 0 then
     return false, string.format("有 %d 个请求处理时间过长 (>30s)", stuck_requests)
   end
-  
+
   return true
 end
 

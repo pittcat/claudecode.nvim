@@ -65,7 +65,6 @@ end
 function M.start_temporary_anti_flicker(duration_ms)
   duration_ms = duration_ms or 200
 
-
   apply_anti_flicker_settings()
 
   -- Cancel existing timer if any

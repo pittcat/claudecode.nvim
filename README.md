@@ -38,6 +38,7 @@ When Anthropic released Claude Code, they only supported VS Code and JetBrains. 
     { "<leader>aC", "<cmd>ClaudeCode --continue<cr>", desc = "Continue Claude" },
     { "<leader>am", "<cmd>ClaudeCodeSelectModel<cr>", desc = "Select Claude model" },
     { "<leader>ax", "<cmd>ClaudeCodeSelectSession<cr>", desc = "Select Claude session" },
+    { "<leader>aw", "<cmd>ClaudeCodeSwitchCommand<cr>", desc = "Switch Claude command" },
     { "<leader>ab", "<cmd>ClaudeCodeAdd %<cr>", desc = "Add current buffer" },
     { "<leader>as", "<cmd>ClaudeCodeSend<cr>", mode = "v", desc = "Send to Claude" },
     {
@@ -185,6 +186,146 @@ Configure the plugin with the detected path:
 " Claude can open files, show diffs, and more
 ```
 
+## Advanced Configuration
+
+### Multiple Claude Commands
+
+The plugin supports switching between different Claude implementations (e.g., official Claude vs custom proxies or development versions):
+
+```lua
+{
+  "coder/claudecode.nvim",
+  dependencies = { "folke/snacks.nvim" },
+  opts = {
+    -- Available Claude commands (uses shell aliases/executables)
+    available_commands = {
+      { name = "Official Claude", cmd = "claude" },
+      { name = "CC Copilot", cmd = "cc-copilot" },  -- Custom alias
+      { name = "Claude Dev", cmd = "claude-dev" },  -- Development version
+      -- Add more commands as needed
+    },
+    active_command_index = 2,  -- Use CC Copilot by default (1-based index)
+  },
+  config = true,
+}
+```
+
+**Usage**:
+- `:ClaudeCodeSwitchCommand` - Switch between configured commands
+- `:ClaudeCodeShowCommand` - Show current active command
+
+### Creating Custom Claude Commands
+
+**⚠️ Important**: Shell aliases may not work in Neovim's environment. Here are the recommended approaches:
+
+#### Method 1: Executable Script (Recommended)
+
+Create a custom executable script for your Claude implementation:
+
+```bash
+# Create the script directory if it doesn't exist
+mkdir -p ~/bin
+
+# Create the executable script
+cat > ~/bin/cc-copilot << 'EOF'
+#!/bin/bash
+export ANTHROPIC_BASE_URL="http://localhost:4141"
+export ANTHROPIC_AUTH_TOKEN="dummy"
+export ANTHROPIC_MODEL="gpt-4.1"
+export ANTHROPIC_SMALL_FAST_MODEL="gpt-5-mini"
+exec claude "$@"
+EOF
+
+# Make it executable
+chmod +x ~/bin/cc-copilot
+
+# Ensure ~/bin is in your PATH (add to ~/.zshrc or ~/.bashrc if needed)
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+Then configure the plugin:
+
+```lua
+{
+  "coder/claudecode.nvim",
+  dependencies = { "folke/snacks.nvim" },
+  opts = {
+    available_commands = {
+      { name = "Official Claude", cmd = "claude" },
+      { name = "CC Copilot", cmd = "cc-copilot" },  -- Now works in Neovim!
+    },
+    active_command_index = 2,
+  },
+  config = true,
+}
+```
+
+#### Method 2: Direct Command with Environment
+
+If you prefer not to create scripts, use bash directly:
+
+```lua
+{
+  "coder/claudecode.nvim",
+  dependencies = { "folke/snacks.nvim" },
+  opts = {
+    available_commands = {
+      { name = "Official Claude", cmd = "claude" },
+      { 
+        name = "CC Copilot", 
+        cmd = "bash -c 'ANTHROPIC_BASE_URL=\"http://localhost:4141\" ANTHROPIC_AUTH_TOKEN=\"dummy\" ANTHROPIC_MODEL=\"gpt-4.1\" ANTHROPIC_SMALL_FAST_MODEL=\"gpt-5-mini\" claude'" 
+      },
+    },
+    active_command_index = 2,
+  },
+  config = true,
+}
+```
+
+#### Method 3: Using Different Executable Paths
+
+For different Claude installations or versions:
+
+```lua
+{
+  "coder/claudecode.nvim",
+  dependencies = { "folke/snacks.nvim" },
+  opts = {
+    available_commands = {
+      { name = "Official Claude", cmd = "claude" },
+      { name = "Local Claude", cmd = "~/.claude/local/claude" },
+      { name = "Development Claude", cmd = "/opt/claude-dev/bin/claude" },
+    },
+    active_command_index = 1,
+  },
+  config = true,
+}
+```
+
+#### Troubleshooting Custom Commands
+
+If your custom command isn't working:
+
+1. **Test the command in terminal**:
+   ```bash
+   # Test your script directly
+   ~/bin/cc-copilot --help
+   
+   # Check if it's in PATH
+   which cc-copilot
+   ```
+
+2. **Verify from within Neovim**:
+   ```vim
+   :!which cc-copilot
+   :!cc-copilot --help
+   ```
+
+3. **Check the debug logs**:
+   - Enable debug logging: `log_level = "debug"` in your config
+   - Look for error code 127 (command not found) in logs
+
 ## Usage
 
 1. **Launch Claude**: Run `:ClaudeCode` to open Claude in a split terminal
@@ -210,6 +351,10 @@ Configure the plugin with the detected path:
 ### Diff Commands
 - `:ClaudeCodeDiffAccept` - Accept diff changes
 - `:ClaudeCodeDiffDeny` - Reject diff changes
+
+### Multiple Commands Support
+- `:ClaudeCodeSwitchCommand` - Switch between different Claude commands (e.g., official vs custom implementations)
+- `:ClaudeCodeShowCommand` - Show current Claude command configuration
 
 
 ## Working with Diffs

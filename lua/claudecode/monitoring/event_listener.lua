@@ -10,7 +10,7 @@ local M = {}
 M.Events = {
   STATE_CHANGED = "state_changed",
   EXECUTION_STARTED = "execution_started",
-  EXECUTION_COMPLETED = "execution_completed", 
+  EXECUTION_COMPLETED = "execution_completed",
   CONNECTION_ESTABLISHED = "connection_established",
   CONNECTION_LOST = "connection_lost",
   TOOL_CALL_STARTED = "tool_call_started",
@@ -18,7 +18,7 @@ M.Events = {
   REQUEST_STARTED = "request_started",
   REQUEST_COMPLETED = "request_completed",
   TERMINAL_PROCESS_EXITED = "terminal_process_exited",
-  ERROR_OCCURRED = "error_occurred"
+  ERROR_OCCURRED = "error_occurred",
 }
 
 --- 回调存储结构
@@ -38,9 +38,9 @@ local event_history = {}
 
 --- 配置选项
 local config = {
-  max_history = 200,  -- 最大事件历史数量
-  enable_history = true,  -- 是否启用事件历史
-  debug_events = false  -- 是否启用事件调试日志
+  max_history = 200, -- 最大事件历史数量
+  enable_history = true, -- 是否启用事件历史
+  debug_events = false, -- 是否启用事件调试日志
 }
 
 --- 生成唯一ID
@@ -56,16 +56,16 @@ local function add_to_history(event, data)
   if not config.enable_history then
     return
   end
-  
+
   local entry = {
     event = event,
     data = vim.deepcopy(data),
     timestamp = vim.loop.hrtime() / 1000000,
-    id = generate_id()
+    id = generate_id(),
   }
-  
+
   table.insert(event_history, entry)
-  
+
   -- 限制历史记录长度
   if #event_history > config.max_history then
     table.remove(event_history, 1)
@@ -79,43 +79,48 @@ end
 --- @return string callback_id 回调ID，用于取消订阅
 function M.on(event, callback, opts)
   opts = opts or {}
-  
+
   if type(event) ~= "string" then
     error("Event name must be a string")
   end
-  
+
   if type(callback) ~= "function" then
     error("Callback must be a function")
   end
-  
+
   -- 初始化事件回调列表
   if not callbacks[event] then
     callbacks[event] = {}
   end
-  
+
   local callback_id = opts.id or generate_id()
-  
+
   local callback_info = {
     id = callback_id,
     callback = callback,
     once = opts.once or false,
-    created_at = vim.loop.hrtime() / 1000000
+    created_at = vim.loop.hrtime() / 1000000,
   }
-  
+
   table.insert(callbacks[event], callback_info)
-  
+
   if config.debug_events then
-    logger.debug("monitoring", string.format(
-      "Event listener registered: %s (id: %s, once: %s)",
-      event, callback_id, tostring(callback_info.once)
-    ))
+    logger.debug(
+      "monitoring",
+      string.format(
+        "Event listener registered: %s (id: %s, once: %s)",
+        event,
+        callback_id,
+        tostring(callback_info.once)
+      )
+    )
   end
-  
+
   return callback_id
 end
 
 --- 注册一次性事件回调
---- @param event string 事件名称  
+--- @param event string 事件名称
 --- @param callback function 回调函数
 --- @return string callback_id 回调ID
 function M.once(event, callback)
@@ -130,22 +135,19 @@ function M.off(event, callback_id)
   if not callbacks[event] then
     return false
   end
-  
+
   for i, callback_info in ipairs(callbacks[event]) do
     if callback_info.id == callback_id then
       table.remove(callbacks[event], i)
-      
+
       if config.debug_events then
-        logger.debug("monitoring", string.format(
-          "Event listener removed: %s (id: %s)", 
-          event, callback_id
-        ))
+        logger.debug("monitoring", string.format("Event listener removed: %s (id: %s)", event, callback_id))
       end
-      
+
       return true
     end
   end
-  
+
   return false
 end
 
@@ -156,17 +158,14 @@ function M.off_all(event)
   if not callbacks[event] then
     return 0
   end
-  
+
   local count = #callbacks[event]
   callbacks[event] = {}
-  
+
   if config.debug_events then
-    logger.debug("monitoring", string.format(
-      "All event listeners removed for: %s (%d callbacks)", 
-      event, count
-    ))
+    logger.debug("monitoring", string.format("All event listeners removed for: %s (%d callbacks)", event, count))
   end
-  
+
   return count
 end
 
@@ -176,68 +175,62 @@ end
 --- @return number callback_count 执行的回调数量
 function M.emit(event, data)
   data = data or {}
-  
+
   -- 添加到历史记录
   add_to_history(event, data)
-  
+
   if config.debug_events then
-    logger.debug("monitoring", string.format(
-      "Event emitted: %s with data: %s", 
-      event, vim.inspect(data)
-    ))
+    logger.debug("monitoring", string.format("Event emitted: %s with data: %s", event, vim.inspect(data)))
   end
-  
+
   -- 如果没有注册的回调，直接返回
   if not callbacks[event] or #callbacks[event] == 0 then
     return 0
   end
-  
+
   local callback_count = 0
   local to_remove = {}
-  
+
   -- 执行所有回调
   for i, callback_info in ipairs(callbacks[event]) do
     local success, result = pcall(callback_info.callback, event, data)
-    
+
     if success then
       callback_count = callback_count + 1
-      
+
       -- 如果是一次性回调，标记为待删除
       if callback_info.once then
         table.insert(to_remove, i)
       end
     else
-      logger.error("monitoring", string.format(
-        "Event callback error for %s (id: %s): %s",
-        event, callback_info.id, tostring(result)
-      ))
-      
+      logger.error(
+        "monitoring",
+        string.format("Event callback error for %s (id: %s): %s", event, callback_info.id, tostring(result))
+      )
+
       -- 触发错误事件
       if event ~= M.Events.ERROR_OCCURRED then
         M.emit(M.Events.ERROR_OCCURRED, {
           source = "event_callback",
           original_event = event,
           callback_id = callback_info.id,
-          error = result
+          error = result,
         })
       end
     end
   end
-  
+
   -- 移除一次性回调（从后往前删除以避免索引问题）
   for i = #to_remove, 1, -1 do
     local index = to_remove[i]
     local callback_info = callbacks[event][index]
     table.remove(callbacks[event], index)
-    
+
     if config.debug_events then
-      logger.debug("monitoring", string.format(
-        "One-time event listener removed: %s (id: %s)",
-        event, callback_info.id
-      ))
+      logger.debug("monitoring", string.format("One-time event listener removed: %s (id: %s)", event, callback_info.id))
     end
   end
-  
+
   return callback_count
 end
 
@@ -256,7 +249,7 @@ end
 --- @return table[] history 事件历史列表
 function M.get_history(event, limit)
   local filtered_history = event_history
-  
+
   -- 按事件名称过滤
   if event then
     filtered_history = {}
@@ -266,13 +259,13 @@ function M.get_history(event, limit)
       end
     end
   end
-  
+
   -- 应用数量限制
   if limit and limit > 0 then
     local start = math.max(1, #filtered_history - limit + 1)
     return vim.list_slice(filtered_history, start)
   end
-  
+
   return vim.deepcopy(filtered_history)
 end
 
@@ -282,15 +275,15 @@ end
 function M.get_listeners(event)
   if event then
     return {
-      [event] = vim.deepcopy(callbacks[event] or {})
+      [event] = vim.deepcopy(callbacks[event] or {}),
     }
   end
-  
+
   local all_callbacks = {}
   for event_name, callback_list in pairs(callbacks) do
     all_callbacks[event_name] = vim.deepcopy(callback_list)
   end
-  
+
   return all_callbacks
 end
 
@@ -300,7 +293,7 @@ function M.get_stats()
   local total_callbacks = 0
   local events_with_callbacks = 0
   local event_counts = {}
-  
+
   for event_name, callback_list in pairs(callbacks) do
     local count = #callback_list
     if count > 0 then
@@ -309,20 +302,20 @@ function M.get_stats()
       event_counts[event_name] = count
     end
   end
-  
+
   -- 统计历史事件
   local history_by_event = {}
   for _, entry in ipairs(event_history) do
     history_by_event[entry.event] = (history_by_event[entry.event] or 0) + 1
   end
-  
+
   return {
     total_callbacks = total_callbacks,
     events_with_callbacks = events_with_callbacks,
     event_counts = event_counts,
     history_total = #event_history,
     history_by_event = history_by_event,
-    config = vim.deepcopy(config)
+    config = vim.deepcopy(config),
   }
 end
 
@@ -351,7 +344,7 @@ end
 function M.wait_for(event, timeout, condition)
   local result = nil
   local completed = false
-  
+
   -- 注册一次性监听器
   local callback_id = M.once(event, function(_, data)
     if not condition or condition(data) then
@@ -359,7 +352,7 @@ function M.wait_for(event, timeout, condition)
       completed = true
     end
   end)
-  
+
   -- 设置超时
   local timer = nil
   if timeout then
@@ -369,18 +362,18 @@ function M.wait_for(event, timeout, condition)
       timer:close()
     end)
   end
-  
+
   -- 等待完成
   vim.wait(timeout or 30000, function()
     return completed
   end)
-  
+
   -- 清理
   if timer then
     timer:close()
   end
   M.off(event, callback_id)
-  
+
   return result
 end
 

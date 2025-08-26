@@ -13,6 +13,13 @@ M.defaults = {
   terminal_cmd = nil,
   bin_path = "claude",
   env = {}, -- Custom environment variables for Claude terminal
+  -- Available Claude commands (uses shell aliases/executables)
+  available_commands = {
+    { name = "Official Claude", cmd = "claude" },
+    { name = "CC Copilot", cmd = "cc-copilot" },
+    -- Add more commands as needed
+  },
+  active_command_index = 1, -- Index into available_commands array (1-based)
   log_level = "info",
   track_selection = true,
   visual_demotion_delay_ms = 50, -- Milliseconds to wait before demoting a visual selection
@@ -68,6 +75,21 @@ function M.validate(config)
   assert(config.terminal_cmd == nil or type(config.terminal_cmd) == "string", "terminal_cmd must be nil or a string")
 
   assert(config.bin_path == nil or type(config.bin_path) == "string", "bin_path must be nil or a string")
+
+  -- Validate available_commands
+  assert(type(config.available_commands) == "table", "available_commands must be a table")
+  for i, cmd_config in ipairs(config.available_commands) do
+    assert(type(cmd_config) == "table", "available_commands[" .. i .. "] must be a table")
+    assert(type(cmd_config.name) == "string", "available_commands[" .. i .. "].name must be a string")
+    assert(type(cmd_config.cmd) == "string", "available_commands[" .. i .. "].cmd must be a string")
+  end
+
+  -- Validate active_command_index
+  assert(type(config.active_command_index) == "number", "active_command_index must be a number")
+  assert(
+    config.active_command_index >= 1 and config.active_command_index <= #config.available_commands,
+    "active_command_index must be between 1 and " .. #config.available_commands
+  )
 
   -- Validate terminal config (only if present, as it's lazy-loaded)
   if config.terminal then
@@ -149,7 +171,10 @@ function M.validate(config)
   assert(type(config.notification) == "table", "notification must be a table")
   assert(type(config.notification.enabled) == "boolean", "notification.enabled must be a boolean")
   assert(type(config.notification.sound) == "string", "notification.sound must be a string")
-  assert(type(config.notification.include_project_path) == "boolean", "notification.include_project_path must be a boolean")
+  assert(
+    type(config.notification.include_project_path) == "boolean",
+    "notification.include_project_path must be a boolean"
+  )
   assert(type(config.notification.title_prefix) == "string", "notification.title_prefix must be a string")
 
   -- Validate monitoring
@@ -166,7 +191,6 @@ function M.validate(config)
     assert(type(model.name) == "string" and model.name ~= "", "models[" .. i .. "].name must be a non-empty string")
     assert(type(model.value) == "string" and model.value ~= "", "models[" .. i .. "].value must be a non-empty string")
   end
-
 
   return true
 end

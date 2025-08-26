@@ -11,7 +11,7 @@ describe("Claude Code Monitoring System - Basic Tests", function()
   before_each(function()
     -- 清理之前的测试状态
     package.loaded["claudecode.monitoring.init"] = nil
-    
+
     -- 重新加载模块
     monitoring = require("claudecode.monitoring.init")
   end)
@@ -47,7 +47,7 @@ describe("Claude Code Monitoring System - Basic Tests", function()
 
     it("should accept custom config", function()
       local custom_config = {
-        enabled = false,  -- 基础配置测试
+        enabled = false, -- 基础配置测试
       }
 
       local success = monitoring.setup(custom_config)
@@ -89,7 +89,7 @@ describe("Claude Code Monitoring System - Basic Tests", function()
       -- 测试未初始化时的访问
       local status = monitoring.get_status()
       assert.is_not_nil(status)
-      
+
       -- 基础错误处理检查
       if status.error then
         assert.is_string(status.error)
@@ -98,14 +98,14 @@ describe("Claude Code Monitoring System - Basic Tests", function()
 
     it("should handle invalid configurations", function()
       local invalid_config = {
-        invalid_field = "invalid_value"
+        invalid_field = "invalid_value",
       }
-      
+
       -- 应该能处理无效配置而不崩溃
       local success = pcall(function()
         monitoring.setup(invalid_config)
       end)
-      
+
       assert.is_true(success)
     end)
   end)

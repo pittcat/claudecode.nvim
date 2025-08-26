@@ -945,7 +945,7 @@ local vim = {
   schedule_wrap = function(callback)
     -- 返回一个包装的函数，在调用时使用 vim.schedule
     return function(...)
-      local args = {...}
+      local args = { ... }
       vim.schedule(function()
         callback(unpack(args))
       end)
