@@ -1051,7 +1051,7 @@ function M._create_commands()
 
     -- Add command to switch between different Claude command profiles
     vim.api.nvim_create_user_command("ClaudeCodeSwitchCommand", function()
-      local config = require("claudecode.config").defaults
+      local config = M.state.config
       if not config.available_commands or #config.available_commands <= 1 then
         vim.notify("Only one command available. Add more to available_commands in your setup.", vim.log.levels.INFO)
         return
@@ -1094,7 +1094,7 @@ function M._create_commands()
 
     -- Add command to show current command configuration
     vim.api.nvim_create_user_command("ClaudeCodeShowCommand", function()
-      local config = require("claudecode.config").defaults
+      local config = M.state.config
 
       if config.available_commands and config.active_command_index then
         local active_cmd = config.available_commands[config.active_command_index]

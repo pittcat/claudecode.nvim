@@ -308,7 +308,8 @@ end
 ---@return string cmd_string The command string
 ---@return table env_table The environment variables table
 function M.get_claude_command_and_env(cmd_args)
-  local config = require("claudecode.config").defaults
+  local init_mod = require("claudecode")
+  local config = init_mod and init_mod.state and init_mod.state.config or require("claudecode.config").defaults
   local base_cmd
 
   -- Get command from available_commands based on active_command_index
