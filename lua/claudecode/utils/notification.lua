@@ -12,6 +12,13 @@ local default_config = {
   sound = "Glass",
   include_project_path = true,
   title_prefix = "Claude Code",
+  backend = "terminal-notifier", -- 目前支持 terminal-notifier
+  terminal_notifier = {
+    ignore_dnd = true, -- 是否忽略勿扰模式，对应 -ignoreDnD
+    sender = "com.apple.Terminal",
+    group = "claudecode",
+    activate = "com.apple.Terminal",
+  },
 }
 
 --- 当前配置
@@ -34,18 +41,9 @@ local function get_project_info()
   return project_name, cwd
 end
 
---- 转义 AppleScript 字符串中的特殊字符
---- @param str string 需要转义的字符串
---- @return string 转义后的字符串
-local function escape_applescript_string(str)
-  if not str then
-    return ""
-  end
-  -- 转义双引号和反斜杠
-  return str:gsub("\\", "\\\\"):gsub('"', '\\"')
-end
+-- AppleScript 转义函数已移除（不再使用 osascript）
 
---- 发送 macOS 系统通知
+--- 发送 macOS 系统通知（使用 terminal-notifier）
 --- @param title string 通知标题
 --- @param message string 通知内容
 --- @param sound string|nil 通知声音，默认使用配置中的声音
@@ -59,23 +57,46 @@ local function send_macos_notification(title, message, sound)
   -- 使用配置中的声音或默认声音
   sound = sound or config.sound or "Glass"
 
-  -- 转义字符串
-  local escaped_title = escape_applescript_string(title)
-  local escaped_message = escape_applescript_string(message)
-  local escaped_sound = escape_applescript_string(sound)
+  -- subtitle：若标题已是项目名，则不重复项目名
+  local project_name = select(1, get_project_info())
+  local subtitle
+  if not title or title ~= project_name then
+    subtitle = string.format("Project：%s", project_name)
+  end
 
-  -- 构建 AppleScript 命令
-  local cmd = string.format(
-    'osascript -e \'display notification "%s" with title "%s" sound name "%s"\'',
-    escaped_message,
-    escaped_title,
-    escaped_sound
-  )
+  -- 构建 terminal-notifier 参数列表
+  local tn = config.terminal_notifier or {}
+  local args = {
+    "terminal-notifier",
+    "-message",
+    message or "",
+    "-title",
+    title or (config.title_prefix or "Claude Code"),
+    -- subtitle 需要后续按条件插入
+    "-sound",
+    sound,
+    "-sender",
+    tn.sender or "com.apple.Terminal",
+    "-group",
+    tn.group or "claudecode",
+    "-activate",
+    tn.activate or "com.apple.Terminal",
+  }
 
-  logger.debug("notification", string.format("Sending notification command: %s", cmd))
+  if subtitle and subtitle ~= "" then
+    table.insert(args, 6, "-subtitle")
+    table.insert(args, 7, subtitle)
+  end
 
-  -- 异步执行通知命令
-  vim.fn.jobstart(cmd, {
+  -- 是否忽略勿扰模式
+  if tn.ignore_dnd ~= false then
+    table.insert(args, "-ignoreDnD")
+  end
+
+  logger.debug("notification", "Sending notification via terminal-notifier")
+
+  -- 异步执行通知命令（列表避免转义问题）
+  vim.fn.jobstart(args, {
     on_exit = function(_, exit_code)
       if exit_code == 0 then
         logger.debug("notification", "Notification sent successfully")
@@ -135,8 +156,11 @@ function M.is_supported()
     return false
   end
 
-  -- 检查 osascript 命令是否可用
-  return vim.fn.executable("osascript") == 1
+  local backend = (config.backend or "terminal-notifier")
+  if backend == "terminal-notifier" then
+    return vim.fn.executable("terminal-notifier") == 1
+  end
+  return false
 end
 
 --- 获取当前配置

@@ -10,7 +10,7 @@ Claude Code 通知功能可以在任务完成时自动发送 macOS 系统通知�
 - **智能过滤**：仅在任务正常完成时发送通知，用户主动中断时不会发送
 - **项目信息**：通知中包含当前项目名称和路径
 - **可配置选项**：支持自定义通知声音、内容格式等
-- **macOS 原生支持**：使用 AppleScript 调用系统通知中心
+- **macOS 原生支持**：使用 terminal-notifier 发送系统通知
 
 ## 配置选项
 
@@ -19,6 +19,13 @@ Claude Code 通知功能可以在任务完成时自动发送 macOS 系统通知�
 ```lua
 require("claudecode").setup({
   notification = {
+    backend = "terminal-notifier",     -- 通知后端（当前支持 terminal-notifier）
+    terminal_notifier = {
+      ignore_dnd = true,               -- 是否忽略勿扰模式（映射 -ignoreDnD）
+      -- 可选：sender = "com.apple.Terminal",
+      -- 可选：group = "claudecode",
+      -- 可选：activate = "com.apple.Terminal",
+    },
     enabled = true,                    -- 是否启用通知（默认：true）
     sound = "Glass",                   -- 通知声音（默认："Glass"）
     include_project_path = true,       -- 是否在通知中包含项目路径（默认：true）
@@ -32,6 +39,11 @@ require("claudecode").setup({
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
+| `backend` | string | `"terminal-notifier"` | 通知后端（当前实现） |
+| `terminal_notifier.ignore_dnd` | boolean | `true` | 是否传递 `-ignoreDnD` |
+| `terminal_notifier.sender` | string | `"com.apple.Terminal"` | `-sender` 值 |
+| `terminal_notifier.group` | string | `"claudecode"` | `-group` 值（用于合并） |
+| `terminal_notifier.activate` | string | `"com.apple.Terminal"` | `-activate` 值 |
 | `enabled` | boolean | `true` | 是否启用通知功能 |
 | `sound` | string | `"Glass"` | 通知声音名称（macOS 系统声音） |
 | `include_project_path` | boolean | `true` | 是否在通知内容中包含项目完整路径 |
@@ -67,7 +79,7 @@ require("claudecode").setup({
 ❌ **不会发送通知的情况**：
 - 用户主动中断任务（如按 Ctrl+C 或 `[Request interrupted by user]`）
 - 通知功能被禁用（`enabled = false`）
-- 非 macOS 系统或缺少 `osascript` 命令
+- 非 macOS 系统或缺少 `terminal-notifier` 命令
 - 任务状态没有发生变化（如一直处于空闲状态）
 
 ## 通知内容格式
@@ -132,7 +144,7 @@ require("claudecode").setup({
    ```
    应该返回 `true`。如果返回 `false`，检查：
    - 是否为 macOS 系统
-   - `osascript` 命令是否可用
+   - `terminal-notifier` 是否已安装（可通过 `which terminal-notifier` 检查）
 
 2. **检查配置**：
    ```vim
@@ -194,7 +206,7 @@ end
 ## 系统要求
 
 - **操作系统**：macOS（其他系统暂不支持）
-- **依赖命令**：`osascript`（macOS 自带）
+- **依赖命令**：`terminal-notifier`（可用 Homebrew 安装：`brew install terminal-notifier`）
 - **Neovim 版本**：>= 0.8.0
 
 ## 相关文件
@@ -209,3 +221,23 @@ end
 - 通知功能基于 Claude Code 的智能状态分析系统
 - 状态检测间隔默认为 4 秒，可在监控配置中调整
 - 所有通知操作都会记录在日志中，可通过设置 `log_level = "debug"` 查看详细信息
+
+## 附：使用的通知命令（示例）
+
+插件在 macOS 上通过下述方式调用通知（示例）：
+
+```
+terminal-notifier \
+  -message "任务完成" \
+  -title "Claude Code" \
+  -subtitle "项目：claudecode.nvim" \
+  -sound Glass \
+  -sender com.apple.Terminal \
+  -group claudecode \
+  -activate com.apple.Terminal \
+-ignoreDnD
+```
+
+说明：当通知标题已为项目名时，为避免重复，子标题将省略，不再显示 “项目：<项目名>”。
+
+请确保已安装 `terminal-notifier`，否则通知将不会发送。

@@ -8,8 +8,13 @@ claudecode.nvim - A Neovim plugin that implements the same WebSocket-based MCP p
 
 ## Common Development Commands
 
-### Testing
+### Before Committing
+- `make` - **ALWAYS RUN BEFORE COMMITTING**: Runs format, check, and test
+- `make check` - Check Lua syntax and run luacheck (must have 0 warnings)
+- `make format` - Format code with stylua or nix fmt
+- `make clean` - Remove generated test files (luacov reports)
 
+### Testing
 - `make test` - Run all tests using busted with coverage (320+ tests)
 - `busted tests/unit/specific_spec.lua` - Run specific test file
 - `busted --coverage -v` - Run tests with verbose output and coverage
@@ -21,15 +26,7 @@ export LUA_PATH="./lua/?.lua;./lua/?/init.lua;./?.lua;./?/init.lua;$LUA_PATH"
 busted tests/unit/tools/specific_tool_spec.lua --verbose
 ```
 
-### Code Quality
-
-- `make` - **ALWAYS RUN BEFORE COMMITTING**: Runs format, check, and test
-- `make check` - Check Lua syntax and run luacheck (must have 0 warnings)
-- `make format` - Format code with stylua or nix fmt
-- `make clean` - Remove generated test files (luacov reports)
-
 ### Development with Nix
-
 - `nix develop` - Enter development shell with all dependencies
 - `nix develop .#ci -c make test` - Run tests in CI environment
 - `nix fmt` - Format all files using nix formatter
@@ -82,6 +79,15 @@ list-configs  # Show available configurations
    - Accept/reject with `:w`/`:q` or commands
    - Configuration: keep_terminal_focus, open_in_new_tab
 
+### Branch-Specific Features (add-unsafe-command)
+
+This branch includes experimental features:
+- **Monitoring System** (`lua/claudecode/monitoring/`) - WebSocket/terminal/tool call monitoring
+- **Notification System** (`lua/claudecode/utils/notification.lua`) - macOS notifications for task completion  
+- **Anti-Flicker Core** (`lua/claudecode/anti_flicker.lua`) - Terminal display optimization
+- **Multiple Commands** - Switch between different Claude implementations
+- **Special Commands** - ClaudeCodeUnsafe, ClaudeCodeContinue
+
 ## Key File Locations
 
 - `lua/claudecode/init.lua` - Main entry point, version management
@@ -90,6 +96,8 @@ list-configs  # Show available configurations
 - `tests/busted_setup.lua` - Custom JSON decoder for tests
 - `scripts/claude_interactive.sh` - WebSocket client for testing
 - `scripts/lib_claude.sh` - Shared test utilities
+- `.luacheckrc` - Luacheck configuration
+- `.stylua.toml` - Stylua formatting configuration
 
 ## MCP Protocol Implementation
 
@@ -121,6 +129,26 @@ M.handlers.openFile = function(params)
 end
 ```
 
+## Code Style and Conventions
+
+### Lua Formatting
+- Use stylua with project configuration (column_width=120, indent=2 spaces)
+- Quote style: AutoPreferDouble
+- Call parentheses: Always
+- Sort requires: Enabled
+
+### Luacheck Rules
+- Standard: luajit+busted
+- Max line length: 120
+- Globals: vim, expect, assert_contains, assert_not_contains, spy
+
+### Module Pattern
+```lua
+local M = {}
+-- module implementation
+return M
+```
+
 ## Testing Requirements
 
 ### Before Committing
@@ -150,7 +178,7 @@ When modifying session-related code, test:
 1. **Make changes** following existing patterns
 2. **Run specific tests** for modified components
 3. **Run `make`** for complete validation
-4. **Update version** in all required files (see Release Process)
+4. **Update version** in all required files (see Version Updates)
 5. **Update CHANGELOG.md** with changes
 
 ## Version Updates
@@ -160,15 +188,6 @@ When updating version, modify ALL these files:
 - `scripts/claude_interactive.sh` - Lines ~52, ~223, ~309
 - `scripts/lib_claude.sh` - Line ~120
 - `CHANGELOG.md` - Add release notes
-
-## Branch-Specific Features (add-unsafe-command)
-
-This branch includes experimental features:
-- **Monitoring System** - WebSocket/terminal/tool call monitoring
-- **Notification System** - macOS notifications for task completion  
-- **Anti-Flicker Core** - Terminal display optimization
-- **Multiple Commands** - Switch between different Claude implementations
-- **Special Commands** - ClaudeCodeUnsafe, ClaudeCodeContinue
 
 ## Debug Logging
 
