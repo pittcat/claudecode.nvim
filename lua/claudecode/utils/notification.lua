@@ -1,5 +1,5 @@
---- 系统通知工具模块
---- 用于发送 macOS 系统通知，提醒用户任务完成
+--- System notification utility module
+--- Used to send macOS system notifications to alert users when tasks are complete
 --- @module claudecode.utils.notification
 
 local logger = require("claudecode.logger")
@@ -90,7 +90,7 @@ local function send_macos_notification(title, message, sound)
   return true
 end
 
---- 发送任务完成通知
+--- Send task completion notification
 --- @param options table|nil 通知选项
 ---   - message: string 自定义消息内容
 ---   - sound: string 自定义声音
@@ -107,10 +107,10 @@ function M.send_task_completion_notification(options)
     title = project_name
   end
 
-  -- 构建通知消息
-  local message = options.message or "任务已完成"
+  -- Build notification message
+  local message = options.message or "Task completed"
   if config.include_project_path and options.include_project ~= false then
-    message = string.format("%s\n路径: %s", message, project_path)
+    message = string.format("%s\nPath: %s", message, project_path)
   end
 
   logger.info("notification", string.format("Sending task completion notification for project: %s", project_name))

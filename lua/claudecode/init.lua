@@ -1165,15 +1165,15 @@ function M._create_commands()
       local status = M.state.monitoring.get_status()
       local state_name = status.current_state or "unknown"
       local state_display = {
-        disconnected = "断开连接",
-        idle = "空闲",
-        executing = "执行中",
-        completed = "已完成",
+        disconnected = "Disconnected",
+        idle = "Idle",
+        executing = "Executing",
+        completed = "Completed",
       }
-      print(string.format("Claude Code 监控状态: %s (%s)", state_display[state_name] or state_name, state_name))
-      print(string.format("运行时间: %.1f秒", (status.uptime or 0) / 1000))
+      print(string.format("Claude Code monitoring status: %s (%s)", state_display[state_name] or state_name, state_name))
+      print(string.format("Uptime: %.1f seconds", (status.uptime or 0) / 1000))
     else
-      print("Claude Code 监控系统未启用")
+      print("Claude Code monitoring system not enabled")
     end
   end, {
     desc = "显示 Claude Code 监控状态",

@@ -391,9 +391,9 @@ local function perform_intelligent_analysis()
       -- 检查是否需要发送任务完成通知
       -- 只有在不是中断情况下才发送通知
       if analysis_reason and not analysis_reason:match("interrupted") then
-        -- 发送任务完成通知
+        -- Send task completion notification
         notification.send_task_completion_notification({
-          message = "Claude Code 任务已完成",
+          message = "Claude Code task completed",
           include_project = true,
         })
       end

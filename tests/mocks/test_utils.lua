@@ -77,7 +77,7 @@ function M.create_notification_mock()
     send_task_completion_notification = function(self, options)
       return self:send_notification(
         "Claude Code",
-        options and options.message or "任务已完成",
+        options and options.message or "Task completed",
         options and options.sound
       )
     end,
