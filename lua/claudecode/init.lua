@@ -266,10 +266,39 @@ function M.send_at_mention(file_path, start_line, end_line, context)
 
   -- Check if Claude Code is connected
   if M.is_claude_connected() then
-    -- Claude is connected, send immediately and ensure terminal is visible
+    -- Check terminal location before sending
+    local terminal = require("claudecode.terminal")
+    local provider = terminal._get_provider()
+    local active_bufnr = provider.get_active_bufnr()
+    
+    if active_bufnr then
+      -- Check if terminal is in current tab
+      local current_tab_buffers = vim.fn.tabpagebuflist()
+      local terminal_in_current_tab = false
+      for _, buf in ipairs(current_tab_buffers) do
+        if buf == active_bufnr then
+          terminal_in_current_tab = true
+          break
+        end
+      end
+      
+      if not terminal_in_current_tab then
+        -- Find which tab has the terminal
+        for tabnr = 1, vim.fn.tabpagenr("$") do
+          local windows = vim.fn.tabpagebuflist(tabnr)
+          for _, winbufnr in ipairs(windows) do
+            if winbufnr == active_bufnr then
+              vim.notify("No terminal found in current tab. Please run :ClaudeCode first.", vim.log.levels.WARN)
+              return false, "Terminal is in different tab"
+            end
+          end
+        end
+      end
+    end
+    
+    -- Claude is connected and terminal is accessible, send immediately and ensure terminal is visible
     local success, error_msg = M._broadcast_at_mention(file_path, start_line, end_line)
     if success then
-      local terminal = require("claudecode.terminal")
       terminal.ensure_visible()
     end
     return success, error_msg
@@ -821,6 +850,26 @@ function M._create_commands()
   local visual_commands = require("claudecode.visual_commands")
   local unified_send_handler = visual_commands.create_visual_command_wrapper(handle_send_normal, handle_send_visual)
 
+  -- 创建全局函数用于添加当前 buffer 到 Claude
+  _G.claudecode_add_buffer = function()
+    local current_file = vim.api.nvim_buf_get_name(0)
+    if current_file and current_file ~= "" then
+      local success, error_msg = M.send_at_mention(current_file, nil, nil, "claudecode_add_buffer")
+      if success then
+        logger.info("command", "Added current buffer to Claude: " .. vim.fn.fnamemodify(current_file, ":t"))
+      else
+        if error_msg == "Terminal is in different tab" then
+          -- Don't log this as an error since user already got a notification
+          return
+        else
+          logger.error("command", "Failed to add buffer: " .. (error_msg or "unknown error"))
+        end
+      end
+    else
+      logger.warn("command", "No file in current buffer to add")
+    end
+  end
+
   vim.api.nvim_create_user_command("ClaudeCodeSend", unified_send_handler, {
     desc = "Send current visual selection as an at_mention to Claude Code (supports tree visual selection)",
     range = true,
@@ -991,7 +1040,12 @@ function M._create_commands()
 
     local success, error_msg = M.send_at_mention(file_path, claude_start_line, claude_end_line, "ClaudeCodeAdd")
     if not success then
-      logger.error("command", "ClaudeCodeAdd: " .. (error_msg or "Failed to add file"))
+      if error_msg == "Terminal is in different tab" then
+        -- Don't log this as an error since user already got a notification
+        return
+      else
+        logger.error("command", "ClaudeCodeAdd: " .. (error_msg or "Failed to add file"))
+      end
     else
       local message = "ClaudeCodeAdd: Successfully added " .. file_path
       if start_line or end_line then

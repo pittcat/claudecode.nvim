@@ -262,17 +262,50 @@ local function build_config(opts_override)
   }
 end
 
----Checks if a terminal buffer is currently visible in any window
+---Checks if a terminal buffer is currently visible in the current tab
 ---@param bufnr number? The buffer number to check
----@return boolean True if the buffer is visible in any window, false otherwise
+---@return boolean True if the buffer is visible in the current tab, false otherwise
 local function is_terminal_visible(bufnr)
   if not bufnr then
     return false
   end
 
-  local bufinfo = vim.fn.getbufinfo(bufnr)
-  return bufinfo and #bufinfo > 0 and #bufinfo[1].windows > 0
+  -- 获取当前 tab 的所有窗口的 buffer 列表
+  local current_tab_buffers = vim.fn.tabpagebuflist()
+  
+  -- 检查目标 buffer 是否在当前 tab 中
+  for _, buf in ipairs(current_tab_buffers) do
+    if buf == bufnr then
+      return true
+    end
+  end
+  
+  return false
 end
+
+--- 检查终端是否在任何 tab 中可见，并返回 tab 号
+---@param bufnr number? The buffer number to check
+---@return number? The tab number containing the buffer, or nil if not found
+local function find_terminal_tab(bufnr)
+  if not bufnr then
+    return nil
+  end
+
+  -- 遍历所有 tab
+  for tabnr = 1, vim.fn.tabpagenr("$") do
+    -- 获取该 tab 中的所有窗口的 buffer 列表
+    local windows = vim.fn.tabpagebuflist(tabnr)
+    -- 检查是否包含目标 buffer
+    for _, winbufnr in ipairs(windows) do
+      if winbufnr == bufnr then
+        return tabnr
+      end
+    end
+  end
+
+  return nil
+end
+
 
 --- Applies terminal display corruption fixes
 --- @param bufnr number Terminal buffer number
@@ -369,6 +402,7 @@ end
 ---@return boolean visible True if terminal was opened or already visible
 local function ensure_terminal_visible_no_focus(opts_override, cmd_args)
   local provider = get_provider()
+  local logger = require("claudecode.logger")
 
   -- Check if provider has an ensure_visible method
   if provider.ensure_visible then
@@ -377,13 +411,26 @@ local function ensure_terminal_visible_no_focus(opts_override, cmd_args)
   end
 
   local active_bufnr = provider.get_active_bufnr()
+  local current_tab = vim.fn.tabpagenr()
+  
+  logger.debug("terminal", string.format("ensure_terminal_visible_no_focus: active_bufnr=%s, current_tab=%d", tostring(active_bufnr), current_tab))
 
+  -- 首先检查终端是否在当前 tab 可见
   if is_terminal_visible(active_bufnr) then
-    -- Terminal is already visible, do nothing
+    -- Terminal is already visible in current tab, do nothing
+    logger.debug("terminal", "Terminal is already visible in current tab")
     return true
   end
 
-  -- Terminal is not visible, open it without focus
+  -- 检查终端是否在其他 tab 中，如果是则发出提醒
+  local terminal_tab = find_terminal_tab(active_bufnr)
+  logger.debug("terminal", string.format("find_terminal_tab returned: %s", tostring(terminal_tab)))
+  if terminal_tab then
+    vim.notify(string.format("Claude Code in tab %d", terminal_tab), vim.log.levels.WARN)
+    return true
+  end
+
+  -- Terminal is not visible in any tab, open it without focus
   local effective_config = build_config(opts_override)
   local cmd_string, claude_env_table = M.get_claude_command_and_env(cmd_args)
 
@@ -652,6 +699,12 @@ function M._get_managed_terminal_for_test()
     return provider._get_terminal_for_test()
   end
   return nil
+end
+
+---Gets the current terminal provider (for internal use)
+---@return ClaudeCodeTerminalProvider provider The terminal provider
+function M._get_provider()
+  return get_provider()
 end
 
 return M
