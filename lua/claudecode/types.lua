@@ -39,11 +39,19 @@
 ---@alias ClaudeCodeSplitSide "left"|"right"
 
 -- In-tree terminal provider names
----@alias ClaudeCodeTerminalProviderName "auto"|"snacks"|"native"|"external"
+---@alias ClaudeCodeTerminalProviderName "auto"|"snacks"|"native"|"external"|"none"
 
 -- Terminal provider-specific options
 ---@class ClaudeCodeTerminalProviderOptions
----@field external_terminal_cmd string? Command template for external terminal (e.g., "alacritty -e %s")
+---@field external_terminal_cmd string|(fun(cmd: string, env: table): string)|table|nil Command for external terminal (string template with %s or function)
+
+-- Working directory resolution context and provider
+---@class ClaudeCodeCwdContext
+---@field file string|nil   -- absolute path of current buffer file (if any)
+---@field file_dir string|nil -- directory of current buffer file (if any)
+---@field cwd string        -- current Neovim working directory
+
+---@alias ClaudeCodeCwdProvider fun(ctx: ClaudeCodeCwdContext): string|nil
 
 -- Working directory resolution context and provider
 ---@class ClaudeCodeCwdContext
@@ -108,6 +116,7 @@
 ---@field env table<string, string>
 ---@field log_level ClaudeCodeLogLevel
 ---@field track_selection boolean
+---@field focus_after_send boolean
 ---@field visual_demotion_delay_ms number
 ---@field connection_wait_delay number
 ---@field connection_timeout number

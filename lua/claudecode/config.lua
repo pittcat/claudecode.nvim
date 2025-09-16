@@ -22,6 +22,8 @@ M.defaults = {
   active_command_index = 1, -- Index into available_commands array (1-based)
   log_level = "info",
   track_selection = true,
+  -- When true, focus Claude terminal after a successful send while connected
+  focus_after_send = false,
   visual_demotion_delay_ms = 50, -- Milliseconds to wait before demoting a visual selection
   connection_wait_delay = 200, -- Milliseconds to wait after connection before sending queued @ mentions
   connection_timeout = 10000, -- Maximum time to wait for Claude Code to connect (milliseconds)
@@ -76,20 +78,24 @@ function M.validate(config)
 
   assert(config.bin_path == nil or type(config.bin_path) == "string", "bin_path must be nil or a string")
 
-  -- Validate available_commands
-  assert(type(config.available_commands) == "table", "available_commands must be a table")
-  for i, cmd_config in ipairs(config.available_commands) do
-    assert(type(cmd_config) == "table", "available_commands[" .. i .. "] must be a table")
-    assert(type(cmd_config.name) == "string", "available_commands[" .. i .. "].name must be a string")
-    assert(type(cmd_config.cmd) == "string", "available_commands[" .. i .. "].cmd must be a string")
+  -- Validate available_commands (optional in direct validate calls)
+  if config.available_commands ~= nil then
+    assert(type(config.available_commands) == "table", "available_commands must be a table")
+    for i, cmd_config in ipairs(config.available_commands) do
+      assert(type(cmd_config) == "table", "available_commands[" .. i .. "] must be a table")
+      assert(type(cmd_config.name) == "string", "available_commands[" .. i .. "].name must be a string")
+      assert(type(cmd_config.cmd) == "string", "available_commands[" .. i .. "].cmd must be a string")
+    end
   end
 
-  -- Validate active_command_index
-  assert(type(config.active_command_index) == "number", "active_command_index must be a number")
-  assert(
-    config.active_command_index >= 1 and config.active_command_index <= #config.available_commands,
-    "active_command_index must be between 1 and " .. #config.available_commands
-  )
+  -- Validate active_command_index when provided; apply() will supply defaults otherwise
+  if config.active_command_index ~= nil and config.available_commands ~= nil then
+    assert(type(config.active_command_index) == "number", "active_command_index must be a number")
+    assert(
+      config.active_command_index >= 1 and config.active_command_index <= #config.available_commands,
+      "active_command_index must be between 1 and " .. #config.available_commands
+    )
+  end
 
   -- Validate terminal config (only if present, as it's lazy-loaded)
   if config.terminal then
@@ -102,11 +108,13 @@ function M.validate(config)
 
     -- Validate external_terminal_cmd in provider_opts
     if config.terminal.provider_opts.external_terminal_cmd then
+      local cmd_type = type(config.terminal.provider_opts.external_terminal_cmd)
       assert(
-        type(config.terminal.provider_opts.external_terminal_cmd) == "string",
-        "terminal.provider_opts.external_terminal_cmd must be a string"
+        cmd_type == "string" or cmd_type == "function",
+        "terminal.provider_opts.external_terminal_cmd must be a string or function"
       )
-      if config.terminal.provider_opts.external_terminal_cmd ~= "" then
+      -- Only validate %s placeholder for strings
+      if cmd_type == "string" and config.terminal.provider_opts.external_terminal_cmd ~= "" then
         assert(
           config.terminal.provider_opts.external_terminal_cmd:find("%%s"),
           "terminal.provider_opts.external_terminal_cmd must contain '%s' placeholder for the Claude command"
@@ -126,6 +134,10 @@ function M.validate(config)
   assert(is_valid_log_level, "log_level must be one of: " .. table.concat(valid_log_levels, ", "))
 
   assert(type(config.track_selection) == "boolean", "track_selection must be a boolean")
+  -- Allow absence in direct validate() calls; apply() supplies default
+  if config.focus_after_send ~= nil then
+    assert(type(config.focus_after_send) == "boolean", "focus_after_send must be a boolean")
+  end
 
   assert(
     type(config.visual_demotion_delay_ms) == "number" and config.visual_demotion_delay_ms >= 0,
@@ -145,21 +157,47 @@ function M.validate(config)
   assert(type(config.queue_timeout) == "number" and config.queue_timeout > 0, "queue_timeout must be a positive number")
 
   assert(type(config.diff_opts) == "table", "diff_opts must be a table")
-  assert(
-    config.diff_opts.layout == "vertical" or config.diff_opts.layout == "horizontal",
-    "diff_opts.layout must be 'vertical' or 'horizontal'"
-  )
-  assert(type(config.diff_opts.open_in_new_tab) == "boolean", "diff_opts.open_in_new_tab must be a boolean")
-  assert(type(config.diff_opts.keep_terminal_focus) == "boolean", "diff_opts.keep_terminal_focus must be a boolean")
-  assert(
-    type(config.diff_opts.hide_terminal_in_new_tab) == "boolean",
-    "diff_opts.hide_terminal_in_new_tab must be a boolean"
-  )
-  assert(
-    type(config.diff_opts.on_new_file_reject) == "string"
-      and (config.diff_opts.on_new_file_reject == "keep_empty" or config.diff_opts.on_new_file_reject == "close_window"),
-    "diff_opts.on_new_file_reject must be 'keep_empty' or 'close_window'"
-  )
+  if config.diff_opts.layout ~= nil then
+    assert(
+      config.diff_opts.layout == "vertical" or config.diff_opts.layout == "horizontal",
+      "diff_opts.layout must be 'vertical' or 'horizontal'"
+    )
+  end
+  if config.diff_opts.open_in_new_tab ~= nil then
+    assert(type(config.diff_opts.open_in_new_tab) == "boolean", "diff_opts.open_in_new_tab must be a boolean")
+  end
+  if config.diff_opts.keep_terminal_focus ~= nil then
+    assert(type(config.diff_opts.keep_terminal_focus) == "boolean", "diff_opts.keep_terminal_focus must be a boolean")
+  end
+  if config.diff_opts.hide_terminal_in_new_tab ~= nil then
+    assert(
+      type(config.diff_opts.hide_terminal_in_new_tab) == "boolean",
+      "diff_opts.hide_terminal_in_new_tab must be a boolean"
+    )
+  end
+  if config.diff_opts.on_new_file_reject ~= nil then
+    assert(
+      type(config.diff_opts.on_new_file_reject) == "string"
+        and (
+          config.diff_opts.on_new_file_reject == "keep_empty" or config.diff_opts.on_new_file_reject == "close_window"
+        ),
+      "diff_opts.on_new_file_reject must be 'keep_empty' or 'close_window'"
+    )
+  end
+
+  -- Legacy diff options (accept if present to avoid breaking old configs)
+  if config.diff_opts.auto_close_on_accept ~= nil then
+    assert(type(config.diff_opts.auto_close_on_accept) == "boolean", "diff_opts.auto_close_on_accept must be a boolean")
+  end
+  if config.diff_opts.show_diff_stats ~= nil then
+    assert(type(config.diff_opts.show_diff_stats) == "boolean", "diff_opts.show_diff_stats must be a boolean")
+  end
+  if config.diff_opts.vertical_split ~= nil then
+    assert(type(config.diff_opts.vertical_split) == "boolean", "diff_opts.vertical_split must be a boolean")
+  end
+  if config.diff_opts.open_in_current_tab ~= nil then
+    assert(type(config.diff_opts.open_in_current_tab) == "boolean", "diff_opts.open_in_current_tab must be a boolean")
+  end
 
   -- Validate env
   assert(type(config.env) == "table", "env must be a table")
@@ -168,19 +206,23 @@ function M.validate(config)
     assert(type(value) == "string", "env values must be strings")
   end
 
-  assert(type(config.notification) == "table", "notification must be a table")
-  assert(type(config.notification.enabled) == "boolean", "notification.enabled must be a boolean")
-  assert(type(config.notification.sound) == "string", "notification.sound must be a string")
-  assert(
-    type(config.notification.include_project_path) == "boolean",
-    "notification.include_project_path must be a boolean"
-  )
-  assert(type(config.notification.title_prefix) == "string", "notification.title_prefix must be a string")
+  if config.notification ~= nil then
+    assert(type(config.notification) == "table", "notification must be a table")
+    assert(type(config.notification.enabled) == "boolean", "notification.enabled must be a boolean")
+    assert(type(config.notification.sound) == "string", "notification.sound must be a string")
+    assert(
+      type(config.notification.include_project_path) == "boolean",
+      "notification.include_project_path must be a boolean"
+    )
+    assert(type(config.notification.title_prefix) == "string", "notification.title_prefix must be a string")
+  end
 
   -- Validate monitoring
-  assert(type(config.monitoring) == "table", "monitoring must be a table")
-  assert(type(config.monitoring.enabled) == "boolean", "monitoring.enabled must be a boolean")
-  assert(type(config.monitoring.auto_start) == "boolean", "monitoring.auto_start must be a boolean")
+  if config.monitoring ~= nil then
+    assert(type(config.monitoring) == "table", "monitoring must be a table")
+    assert(type(config.monitoring.enabled) == "boolean", "monitoring.enabled must be a boolean")
+    assert(type(config.monitoring.auto_start) == "boolean", "monitoring.auto_start must be a boolean")
+  end
 
   -- Validate models
   assert(type(config.models) == "table", "models must be a table")
@@ -226,6 +268,19 @@ function M.apply(user_config)
         return target
       end
       config = deep_merge(config, user_config)
+    end
+  end
+
+  -- Backward compatibility: map legacy diff options to new fields if provided
+  if config.diff_opts then
+    local d = config.diff_opts
+    -- Map vertical_split -> layout (only if layout not explicitly set)
+    if d.layout == nil and type(d.vertical_split) == "boolean" then
+      d.layout = d.vertical_split and "vertical" or "horizontal"
+    end
+    -- Map open_in_current_tab -> open_in_new_tab (invert; only if not explicitly set)
+    if d.open_in_new_tab == nil and type(d.open_in_current_tab) == "boolean" then
+      d.open_in_new_tab = not d.open_in_current_tab
     end
   end
 

@@ -407,6 +407,10 @@ For deep technical details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
                         -- For local installations: "~/.claude/local/claude"
                         -- For native binary: use output from 'which claude'
 
+    -- Send/Focus Behavior
+    -- When true, successful sends will focus the Claude terminal if already connected
+    focus_after_send = false,
+
     -- Selection Tracking
     track_selection = true,
     visual_demotion_delay_ms = 50,
@@ -415,14 +419,18 @@ For deep technical details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
     terminal = {
       split_side = "right", -- "left" or "right"
       split_width_percentage = 0.30,
-      provider = "auto", -- "auto", "snacks", "native", "external", or custom provider table
+      provider = "auto", -- "auto", "snacks", "native", "external", "none", or custom provider table
       auto_close = true,
       auto_insert_mode = true, -- Auto enter insert mode when switching to terminal
       snacks_win_opts = {}, -- Opts to pass to `Snacks.terminal.open()` - see Floating Window section below
 
       -- Provider-specific options
       provider_opts = {
-        external_terminal_cmd = nil, -- Command template for external terminal provider (e.g., "alacritty -e %s")
+        -- Command for external terminal provider. Can be:
+        -- 1. String with %s placeholder: "alacritty -e %s" (backward compatible)
+        -- 2. String with two %s placeholders: "alacritty --working-directory %s -e %s" (cwd, command)
+        -- 3. Function returning command: function(cmd, env) return "alacritty -e " .. cmd end
+        external_terminal_cmd = nil,
       },
     },
 
@@ -640,18 +648,60 @@ For complete configuration options, see:
 
 ## Terminal Providers
 
-### External Terminal Provider
+### None (No-Op) Provider
 
-Run Claude Code in a separate terminal application outside of Neovim:
+Run Claude Code without any terminal management inside Neovim. This is useful for advanced setups where you manage the CLI externally (tmux, kitty, separate terminal windows) while still using the WebSocket server and tools.
 
 ```lua
 {
   "coder/claudecode.nvim",
   opts = {
     terminal = {
+      provider = "none", -- no UI actions; server + tools remain available
+    },
+  },
+}
+```
+
+Notes:
+
+- No windows/buffers are created. `:ClaudeCode` and related commands will not open anything.
+- The WebSocket server still starts and broadcasts work as usual. Launch the Claude CLI externally when desired.
+
+### External Terminal Provider
+
+Run Claude Code in a separate terminal application outside of Neovim:
+
+```lua
+-- Using a string template (simple)
+{
+  "coder/claudecode.nvim",
+  opts = {
+    terminal = {
       provider = "external",
       provider_opts = {
-        external_terminal_cmd = "alacritty -e %s", -- Replace with your preferred terminal program. %s is replaced with claude command
+        external_terminal_cmd = "alacritty -e %s", -- %s is replaced with claude command
+        -- Or with working directory: "alacritty --working-directory %s -e %s" (first %s = cwd, second %s = command)
+      },
+    },
+  },
+}
+
+-- Using a function for dynamic command generation (advanced)
+{
+  "coder/claudecode.nvim",
+  opts = {
+    terminal = {
+      provider = "external",
+      provider_opts = {
+        external_terminal_cmd = function(cmd, env)
+          -- You can build complex commands based on environment or conditions
+          if vim.fn.has("mac") == 1 then
+            return { "osascript", "-e", string.format('tell app "Terminal" to do script "%s"', cmd) }
+          else
+            return "alacritty -e " .. cmd
+          end
+        end,
       },
     },
   },
@@ -771,6 +821,8 @@ require("claudecode").setup({
 ```
 
 The custom provider will automatically fall back to the native provider if validation fails or `is_available()` returns false.
+
+Note: If your command or working directory may contain spaces or special characters, prefer returning a table of args from a function (e.g., `{ "alacritty", "--working-directory", cwd, "-e", "claude", "--help" }`) to avoid shell-quoting issues.
 
 ## Community Extensions
 

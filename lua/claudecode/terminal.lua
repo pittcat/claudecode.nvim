@@ -150,7 +150,13 @@ local function get_provider()
       -- Check availability based on our config instead of provider's internal state
       local external_cmd = defaults.provider_opts and defaults.provider_opts.external_terminal_cmd
 
-      local has_external_cmd = external_cmd and external_cmd ~= "" and external_cmd:find("%%s")
+      local has_external_cmd = false
+      if type(external_cmd) == "function" then
+        has_external_cmd = true
+      elseif type(external_cmd) == "string" and external_cmd ~= "" and external_cmd:find("%%s") then
+        has_external_cmd = true
+      end
+
       if has_external_cmd then
         return external_provider
       else
@@ -163,6 +169,14 @@ local function get_provider()
   elseif defaults.provider == "native" then
     -- noop, will use native provider as default below
     logger.debug("terminal", "Using native terminal provider")
+  elseif defaults.provider == "none" then
+    local none_provider = load_provider("none")
+    if none_provider then
+      logger.debug("terminal", "Using no-op terminal provider ('none')")
+      return none_provider
+    else
+      logger.warn("terminal", "'none' provider configured but failed to load. Falling back to 'native'.")
+    end
   elseif type(defaults.provider) == "string" then
     logger.warn(
       "terminal",
@@ -499,7 +513,7 @@ function M.setup(user_term_config, p_terminal_cmd, p_env, p_bin_path)
         )
       end
     elseif k == "provider" then
-      if type(v) == "table" or v == "snacks" or v == "native" or v == "external" or v == "auto" then
+      if type(v) == "table" or v == "snacks" or v == "native" or v == "external" or v == "auto" or v == "none" then
         defaults.provider = v
       else
         vim.notify(
@@ -513,7 +527,7 @@ function M.setup(user_term_config, p_terminal_cmd, p_env, p_bin_path)
         defaults[k] = defaults[k] or {}
         for opt_k, opt_v in pairs(v) do
           if opt_k == "external_terminal_cmd" then
-            if opt_v == nil or type(opt_v) == "string" then
+            if opt_v == nil or type(opt_v) == "string" or type(opt_v) == "function" then
               defaults[k][opt_k] = opt_v
             else
               vim.notify(
