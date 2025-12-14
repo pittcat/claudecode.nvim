@@ -144,7 +144,15 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
   end
 
   if config.show_native_term_exit_tip and not tip_shown then
-    vim.notify("Native terminal opened. Press Ctrl-\\ Ctrl-N to return to Normal mode.", vim.log.levels.INFO)
+    -- Use tmux-aware notification
+    local logger = require("claudecode.logger")
+    logger.notify_with_tmux_link(
+      "Native terminal opened. Press Ctrl-\\ Ctrl-N to return to Normal mode.",
+      vim.log.levels.INFO,
+      {
+        title = "ClaudeCode Native Terminal",
+      }
+    )
     tip_shown = true
   end
   return true

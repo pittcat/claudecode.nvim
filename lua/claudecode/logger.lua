@@ -151,4 +151,80 @@ function M.trace(component, ...)
   end
 end
 
+---Notify with optional on_open callback for interactive notifications
+---@param message string The notification message
+---@param level number|nil The log level (vim.log.levels.INFO, etc.), defaults to INFO
+---@param opts table|nil Optional notification options (title, on_open, etc.)
+function M.notify(message, level, opts)
+  level = level or vim.log.levels.INFO
+  opts = opts or {}
+
+  vim.schedule(function()
+    vim.notify(message, level, opts)
+  end)
+end
+
+---Notify with tmux jump action
+---Creates a notification with a callback to jump to the current tmux session/window
+---@param message string The notification message
+---@param level number|nil The log level (vim.log.levels.INFO, etc.), defaults to INFO
+---@param opts table|nil Optional notification options
+function M.notify_with_tmux_link(message, level, opts)
+  opts = opts or {}
+  level = level or vim.log.levels.INFO
+
+  -- Check if tmux notifications are enabled in config
+  local config_ok, config_module = pcall(require, "claudecode.config")
+  local main_ok, main_module = pcall(require, "claudecode")
+  local config = (main_ok and main_module.state and main_module.state.config)
+    or (config_ok and config_module.defaults)
+    or {}
+
+  if config.enable_tmux_notifications == false then
+    -- Tmux notifications disabled, use regular notification
+    M.notify(message, level, opts)
+    return
+  end
+
+  -- Try to load tmux module
+  local ok, tmux = pcall(require, "claudecode.tmux")
+  if not ok or not tmux.is_inside_tmux() then
+    -- Fallback to regular notification if not in tmux or tmux module not available
+    M.notify(message, level, opts)
+    return
+  end
+
+  -- Get tmux location info
+  local session = tmux.get_session_name()
+  local window = tmux.get_window_info()
+
+  if not session then
+    -- No tmux info available, use regular notification
+    M.notify(message, level, opts)
+    return
+  end
+
+  -- Build location string for notification
+  local location_parts = { session }
+  if window and window.name then
+    table.insert(location_parts, window.name)
+  end
+  local location_str = table.concat(location_parts, ":")
+
+  -- Append tmux location to message
+  local full_message = message .. " [tmux: " .. location_str .. "]"
+
+  -- Add on_open callback to jump to tmux session/window
+  opts.on_open = function()
+    tmux.switch_to_session(session)
+    if window and window.index then
+      tmux.switch_to_window(window.index)
+    end
+  end
+
+  vim.schedule(function()
+    vim.notify(full_message, level, opts)
+  end)
+end
+
 return M

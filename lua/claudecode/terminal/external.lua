@@ -137,6 +137,11 @@ function M.open(cmd_string, env_table)
     cleanup_state()
     return
   end
+
+  -- Send notification with tmux link if inside tmux
+  logger.notify_with_tmux_link("Claude Code terminal started", vim.log.levels.INFO, {
+    title = "ClaudeCode External Terminal",
+  })
 end
 
 function M.close()

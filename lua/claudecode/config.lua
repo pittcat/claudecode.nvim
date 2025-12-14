@@ -16,6 +16,8 @@ M.defaults = {
   track_selection = true,
   -- When true, focus Claude terminal after a successful send while connected
   focus_after_send = false,
+  -- When true, add tmux session/window info to notifications when inside tmux
+  enable_tmux_notifications = true,
   visual_demotion_delay_ms = 50, -- Milliseconds to wait before demoting a visual selection
   connection_wait_delay = 600, -- Milliseconds to wait after connection before sending queued @ mentions
   connection_timeout = 10000, -- Maximum time to wait for Claude Code to connect (milliseconds)
@@ -92,6 +94,9 @@ function M.validate(config)
   -- Allow absence in direct validate() calls; apply() supplies default
   if config.focus_after_send ~= nil then
     assert(type(config.focus_after_send) == "boolean", "focus_after_send must be a boolean")
+  end
+  if config.enable_tmux_notifications ~= nil then
+    assert(type(config.enable_tmux_notifications) == "boolean", "enable_tmux_notifications must be a boolean")
   end
 
   assert(

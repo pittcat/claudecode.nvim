@@ -172,4 +172,98 @@ describe("Logger", function()
       expect(direct_echo_called).to_be_false()
     end)
   end)
+
+  describe("notify", function()
+    it("should call vim.notify with scheduled function", function()
+      logger.notify("test notification", vim.log.levels.INFO, { title = "Test" })
+
+      expect(#scheduled_calls).to_be(1)
+      expect(#notify_calls).to_be(1)
+      expect(notify_calls[1].msg).to_be("test notification")
+      expect(notify_calls[1].level).to_be(vim.log.levels.INFO)
+      expect(notify_calls[1].opts.title).to_be("Test")
+    end)
+
+    it("should default to INFO level", function()
+      logger.notify("test notification")
+
+      expect(#notify_calls).to_be(1)
+      expect(notify_calls[1].level).to_be(vim.log.levels.INFO)
+    end)
+  end)
+
+  describe("notify_with_tmux_link", function()
+    before_each(function()
+      -- Mock config module
+      package.loaded["claudecode.config"] = {
+        defaults = {
+          enable_tmux_notifications = true,
+        },
+      }
+    end)
+
+    it("should fall back to regular notify when not in tmux", function()
+      -- Mock tmux module to return false for is_inside_tmux
+      package.loaded["claudecode.tmux"] = {
+        is_inside_tmux = function()
+          return false
+        end,
+      }
+
+      logger.notify_with_tmux_link("test message", vim.log.levels.INFO)
+
+      expect(#notify_calls).to_be(1)
+      expect(notify_calls[1].msg).to_be("test message")
+    end)
+
+    it("should add tmux info when inside tmux", function()
+      -- Mock tmux module
+      package.loaded["claudecode.tmux"] = {
+        is_inside_tmux = function()
+          return true
+        end,
+        get_session_name = function()
+          return "test-session"
+        end,
+        get_window_info = function()
+          return { index = 1, name = "test-window" }
+        end,
+        switch_to_session = function() end,
+        switch_to_window = function() end,
+      }
+
+      logger.notify_with_tmux_link("test message", vim.log.levels.INFO)
+
+      expect(#notify_calls).to_be(1)
+      assert_contains(notify_calls[1].msg, "test message")
+      assert_contains(notify_calls[1].msg, "test-session:test-window")
+      expect(notify_calls[1].opts.on_open).to_be_function()
+    end)
+
+    it("should respect enable_tmux_notifications config", function()
+      -- Mock config with tmux notifications disabled
+      package.loaded["claudecode.config"] = {
+        defaults = {
+          enable_tmux_notifications = false,
+        },
+      }
+
+      -- Mock tmux module
+      package.loaded["claudecode.tmux"] = {
+        is_inside_tmux = function()
+          return true
+        end,
+        get_session_name = function()
+          return "test-session"
+        end,
+      }
+
+      logger.notify_with_tmux_link("test message", vim.log.levels.INFO)
+
+      expect(#notify_calls).to_be(1)
+      -- Should not contain tmux info when disabled
+      expect(notify_calls[1].msg).to_be("test message")
+      expect(notify_calls[1].opts.on_open).to_be_nil()
+    end)
+  end)
 end)

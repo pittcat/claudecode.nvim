@@ -132,6 +132,12 @@ function M.open(cmd_string, env_table, config, focus)
   if term_instance and term_instance:buf_valid() then
     setup_terminal_events(term_instance, config)
     terminal = term_instance
+
+    -- Send notification with tmux link if inside tmux
+    local logger = require("claudecode.logger")
+    logger.notify_with_tmux_link("Claude Code terminal started", vim.log.levels.INFO, {
+      title = "ClaudeCode Snacks Terminal",
+    })
   else
     terminal = nil
     local logger = require("claudecode.logger")
