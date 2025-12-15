@@ -25,8 +25,9 @@ local function get_terminal_module()
 end
 
 ---Get native terminal provider's job channel
+---@param trace_id string Trace ID for logging
 ---@return number|nil jobid The terminal job channel ID
-local function get_terminal_job_channel()
+local function get_terminal_job_channel(trace_id)
   local term = get_terminal_module()
   if not term then
     return nil
@@ -67,16 +68,17 @@ end
 ---Inject text into the Claude terminal
 ---@param text string The text to inject
 ---@param append_enter boolean Whether to append newline
+---@param trace_id string Trace ID for logging
 ---@return boolean success
 ---@return number|nil injected_bytes
 ---@return string|nil error
-local function inject_to_terminal(text, append_enter)
-  local job_channel = get_terminal_job_channel()
+local function inject_to_terminal(text, append_enter, trace_id)
+  local job_channel = get_terminal_job_channel(trace_id)
   if not job_channel then
     return false, nil, "NO_CLAUDE_TERMINAL"
   end
 
-  -- Prepare the text to send
+  -- Send text to terminal
   local send_text = text
   if append_enter then
     send_text = text .. "\n"
@@ -89,12 +91,31 @@ local function inject_to_terminal(text, append_enter)
   end
 
   local bytes_sent = #send_text
+
+  -- If append_enter, also send Enter key via feedkeys in terminal mode
+  if append_enter then
+    local term = get_terminal_module()
+    if term then
+      local bufnr = term.get_active_terminal_bufnr and term.get_active_terminal_bufnr()
+      if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+        local wins = vim.fn.win_findbuf(bufnr)
+        if wins and #wins > 0 then
+          local saved_win = vim.api.nvim_get_current_win()
+          vim.api.nvim_set_current_win(wins[1])
+          pcall(vim.api.nvim_feedkeys, "\r", "t", false)
+          pcall(vim.api.nvim_set_current_win, saved_win)
+        end
+      end
+    end
+  end
+
   return true, bytes_sent, nil
 end
 
 ---Get the status of the Claude terminal
+---@param trace_id string Trace ID for logging
 ---@return table status
-local function get_terminal_status()
+local function get_terminal_status(trace_id)
   local term = get_terminal_module()
   if not term then
     return {
@@ -106,7 +127,7 @@ local function get_terminal_status()
   end
 
   local bufnr = term.get_active_terminal_bufnr and term.get_active_terminal_bufnr()
-  local job_channel = get_terminal_job_channel()
+  local job_channel = get_terminal_job_channel(trace_id)
 
   return {
     terminal_ready = (bufnr ~= nil and job_channel ~= nil),
@@ -151,7 +172,7 @@ function M.handle_rpc(payload_json)
     })
 
   elseif action == "status" then
-    local status = get_terminal_status()
+    local status = get_terminal_status(trace_id)
     return vim.json.encode({
       trace_id = trace_id,
       ok = true,
@@ -185,7 +206,7 @@ function M.handle_rpc(payload_json)
     end
 
     local append_enter = (mode == "append_and_enter")
-    local success, injected_bytes, error_msg = inject_to_terminal(text, append_enter)
+    local success, injected_bytes, error_msg = inject_to_terminal(text, append_enter, trace_id)
 
     return vim.json.encode({
       trace_id = trace_id,
