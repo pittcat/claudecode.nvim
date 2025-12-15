@@ -71,9 +71,6 @@ local function clear_mention_queue()
   if not M.state.mention_queue then
     M.state.mention_queue = {}
   else
-    if #M.state.mention_queue > 0 then
-      logger.debug("queue", "Clearing " .. #M.state.mention_queue .. " queued @ mentions")
-    end
     M.state.mention_queue = {}
   end
 
@@ -138,7 +135,6 @@ local function queue_mention(file_path, start_line, end_line)
   }
 
   table.insert(M.state.mention_queue, mention_data)
-  logger.debug("queue", "Queued @ mention: " .. file_path .. " (queue size: " .. #M.state.mention_queue .. ")")
 
   -- Process based on connection state
   if M.is_claude_connected() then
@@ -165,7 +161,6 @@ function M.process_mention_queue(from_new_connection)
 
   if not M.is_claude_connected() then
     -- Still disconnected or handshake not complete yet, wait for readiness
-    logger.debug("queue", "Claude not ready (no handshake). Keeping ", #M.state.mention_queue, " mentions queued")
 
     -- If triggered by a new connection, poll until handshake completes (bounded by connection_timeout timer)
     if from_new_connection then
@@ -194,12 +189,9 @@ function M.process_mention_queue(from_new_connection)
     M.state.connection_timer = nil
   end
 
-  logger.debug("queue", "Processing " .. #mentions_to_send .. " queued @ mentions")
-
   -- Send mentions with a small delay between each to prevent WebSocket/extension overwhelm
   local function send_mention_sequential(index)
     if index > #mentions_to_send then
-      logger.debug("queue", "All queued mentions sent successfully")
       return
     end
 
@@ -208,7 +200,7 @@ function M.process_mention_queue(from_new_connection)
     -- Check if mention has expired (same timeout logic as old system)
     local current_time = vim.loop.now()
     if (current_time - mention.timestamp) > M.state.config.queue_timeout then
-      logger.debug("queue", "Skipped expired @ mention: " .. mention.file_path)
+      -- Skip expired mention
     else
       -- Directly broadcast without going through the queue system to avoid infinite recursion
       local params = {
@@ -218,9 +210,7 @@ function M.process_mention_queue(from_new_connection)
       }
 
       local broadcast_success = M.state.server.broadcast("at_mentioned", params)
-      if broadcast_success then
-        logger.debug("queue", "Sent queued @ mention: " .. mention.file_path)
-      else
+      if not broadcast_success then
         logger.error("queue", "Failed to send queued @ mention: " .. mention.file_path)
       end
     end
@@ -239,7 +229,6 @@ function M.process_mention_queue(from_new_connection)
     if from_new_connection then
       -- Wait for connection_wait_delay when processing queue after new connection
       local initial_delay = (M.state.config and M.state.config.connection_wait_delay) or 200
-      logger.debug("queue", "Waiting ", initial_delay, "ms after connect before flushing queue")
       vim.defer_fn(function()
         send_mention_sequential(1)
       end, initial_delay)
@@ -340,8 +329,6 @@ function M.send_at_mention(file_path, start_line, end_line, context)
     local terminal = require("claudecode.terminal")
     terminal.open()
 
-    logger.debug(context, "Queued @ mention and launched Claude Code: " .. file_path)
-
     return true, nil
   end
 end
@@ -417,6 +404,15 @@ function M.setup(opts)
     end,
     desc = "Automatically stop Claude Code integration when exiting Neovim",
   })
+
+  -- 初始化 ClaudeIsland RPC 处理器
+  local island_rpc_ok, island_rpc = pcall(require, "claudecode.island_rpc")
+  if island_rpc_ok and island_rpc.setup then
+    island_rpc.setup()
+    logger.info("init", "ClaudeIsland RPC handler initialized")
+  else
+    logger.warn("init", "Failed to initialize ClaudeIsland RPC handler")
+  end
 
   -- 初始化监控系统 (如果启用)
   if M.state.config.monitoring and M.state.config.monitoring.enabled then
@@ -676,8 +672,6 @@ function M._create_commands()
               end
             elseif success_count > 0 then
               logger.info(context, message)
-            else
-              logger.debug(context, message)
             end
           end
           return
@@ -711,8 +705,6 @@ function M._create_commands()
               end
             elseif success_count > 0 then
               logger.info(context, message)
-            else
-              logger.debug(context, message)
             end
           end
         end
@@ -735,7 +727,6 @@ function M._create_commands()
         if total_count > success_count then
           message = message .. string.format(" (%d failed)", total_count - success_count)
         end
-        logger.debug(context, message)
       end
     end
 
@@ -861,7 +852,6 @@ function M._create_commands()
         if success_count > 0 then
           local message = success_count == 1 and "Added 1 file to Claude context from visual selection"
             or string.format("Added %d files to Claude context from visual selection", success_count)
-          logger.debug("command", message)
         end
         return
       end
@@ -949,11 +939,9 @@ function M._create_commands()
       logger.error("command", "ClaudeCodeTreeAdd: Failed to add any files")
     elseif success_count < total_count then
       local message = string.format("Added %d/%d files to Claude context", success_count, total_count)
-      logger.debug("command", message)
     else
       local message = success_count == 1 and "Added 1 file to Claude context"
         or string.format("Added %d files to Claude context", success_count)
-      logger.debug("command", message)
     end
   end
 
@@ -995,7 +983,6 @@ function M._create_commands()
     if success_count > 0 then
       local message = success_count == 1 and "Added 1 file to Claude context from visual selection"
         or string.format("Added %d files to Claude context from visual selection", success_count)
-      logger.debug("command", message)
 
       if success_count < total_count then
         logger.warn("command", string.format("Added %d/%d files from visual selection", success_count, total_count))
@@ -1090,7 +1077,6 @@ function M._create_commands()
           message = message .. " (from line " .. start_line .. ")"
         end
       end
-      logger.debug("command", message)
     end
   end, {
     nargs = "+",
@@ -1374,12 +1360,8 @@ M.open_with_model = function(additional_args)
 end
 
 M.select_and_resume_session = function(additional_args)
-  logger.debug("command", "select_and_resume_session called with args: " .. vim.inspect(additional_args))
-
   local session_manager = require("claudecode.session_manager")
   local sessions = session_manager.get_session_list()
-
-  logger.debug("command", string.format("Found %d sessions", #sessions))
 
   if #sessions == 0 then
     logger.warn("command", "No Claude sessions found for current project")
@@ -1433,7 +1415,6 @@ M.select_and_resume_session = function(additional_args)
               local resume_arg = "--ide --resume " .. selected_session.id
               local final_args = additional_args and (resume_arg .. " " .. additional_args) or resume_arg
 
-              logger.debug("command", "Resuming session with args: " .. final_args)
               logger.info("command", "Resuming session: " .. selected_session.summary)
 
               local terminal_ok, terminal = pcall(require, "claudecode.terminal")
@@ -1481,8 +1462,6 @@ M.select_and_resume_session = function(additional_args)
       -- Include --ide parameter for IDE integration when resuming
       local resume_arg = "--ide --resume " .. selected_session.id
       local final_args = additional_args and (resume_arg .. " " .. additional_args) or resume_arg
-
-      logger.debug("command", "Resuming session with args: " .. final_args)
 
       local terminal_ok, terminal = pcall(require, "claudecode.terminal")
       if terminal_ok then
@@ -1568,7 +1547,6 @@ function M._broadcast_at_mention(file_path, start_line, end_line)
   formatted_path, is_directory = format_result, is_dir_result
 
   if is_directory and (start_line or end_line) then
-    logger.debug("command", "Line numbers ignored for directory: " .. formatted_path)
     start_line = nil
     end_line = nil
   end
@@ -1644,8 +1622,6 @@ function M._add_paths_to_claude(file_paths, options)
             end
           elseif success_count > 0 then
             logger.info(context, message)
-          else
-            logger.debug(context, message)
           end
         end
         return
@@ -1666,16 +1642,6 @@ function M._add_paths_to_claude(file_paths, options)
         end
       end
 
-      logger.debug(
-        context,
-        string.format(
-          "Processed batch %d-%d: %d/%d successful",
-          start_index,
-          end_index,
-          batch_success,
-          end_index - start_index + 1
-        )
-      )
 
       if end_index < total_count then
         vim.defer_fn(function()
@@ -1697,8 +1663,6 @@ function M._add_paths_to_claude(file_paths, options)
             end
           elseif success_count > 0 then
             logger.info(context, message)
-          else
-            logger.debug(context, message)
           end
         end
       end
@@ -1717,10 +1681,7 @@ function M._add_paths_to_claude(file_paths, options)
       end
 
       if total_count > 20 and i % progress_interval == 0 then
-        logger.debug(
-          context,
-          string.format("Progress: %d/%d files processed (%d successful)", i, total_count, success_count)
-        )
+        -- Progress logging
       end
     end
 
@@ -1739,8 +1700,6 @@ function M._add_paths_to_claude(file_paths, options)
         end
       elseif success_count > 0 then
         logger.info(context, message)
-      else
-        logger.debug(context, message)
       end
     end
   end

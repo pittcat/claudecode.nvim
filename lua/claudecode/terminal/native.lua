@@ -35,7 +35,6 @@ local function is_valid()
       if vim.api.nvim_win_get_buf(win) == bufnr then
         -- Found a window displaying our terminal buffer, update the tracked window ID
         winid = win
-        logger.debug("terminal", "Recovered terminal window ID:", win)
         return true
       end
     end
@@ -95,7 +94,6 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
     on_exit = function(job_id, exit_code, _)
       vim.schedule(function()
         if job_id == jobid then
-          logger.debug("terminal", "Terminal process exited, cleaning up")
 
           -- Ensure we are operating on the correct window and buffer before closing
           local current_winid_for_job = winid
@@ -246,8 +244,6 @@ local function hide_terminal()
     -- Close the window - this preserves the buffer and job
     vim.api.nvim_win_close(winid, false)
     winid = nil -- Clear window reference
-
-    logger.debug("terminal", "Terminal window hidden, process preserved")
   end
 end
 
@@ -298,7 +294,6 @@ local function show_hidden_terminal(effective_config, focus)
     vim.api.nvim_set_current_win(original_win)
   end
 
-  logger.debug("terminal", "Showed hidden terminal in new window")
   return true
 end
 
@@ -314,7 +309,6 @@ local function find_existing_claude_terminal()
         local windows = vim.api.nvim_list_wins()
         for _, win in ipairs(windows) do
           if vim.api.nvim_win_get_buf(win) == buf then
-            logger.debug("terminal", "Found existing Claude terminal in buffer", buf, "window", win)
             return buf, win
           end
         end
@@ -356,7 +350,6 @@ function M.open(cmd_string, env_table, effective_config, focus)
       bufnr = existing_buf
       winid = existing_win
       -- Note: We can't recover the job ID easily, but it's less critical
-      logger.debug("terminal", "Recovered existing Claude terminal")
       if focus then
         focus_terminal() -- Focus recovered terminal
       end
@@ -389,9 +382,7 @@ function M.simple_toggle(cmd_string, env_table, effective_config)
     -- Terminal is not visible
     if has_buffer then
       -- Terminal process exists but is hidden, show it
-      if show_hidden_terminal(effective_config, true) then
-        logger.debug("terminal", "Showing hidden terminal")
-      else
+      if not show_hidden_terminal(effective_config, true) then
         logger.error("terminal", "Failed to show hidden terminal")
       end
     else
@@ -401,7 +392,6 @@ function M.simple_toggle(cmd_string, env_table, effective_config)
         -- Recover the existing terminal
         bufnr = existing_buf
         winid = existing_win
-        logger.debug("terminal", "Recovered existing Claude terminal")
         focus_terminal()
       else
         -- No existing terminal found, create a new one
@@ -436,9 +426,7 @@ function M.focus_toggle(cmd_string, env_table, effective_config)
       end
     else
       -- Terminal process exists but is hidden, show it
-      if show_hidden_terminal(effective_config, true) then
-        logger.debug("terminal", "Showing hidden terminal")
-      else
+      if not show_hidden_terminal(effective_config, true) then
         logger.error("terminal", "Failed to show hidden terminal")
       end
     end
@@ -449,7 +437,6 @@ function M.focus_toggle(cmd_string, env_table, effective_config)
       -- Recover the existing terminal
       bufnr = existing_buf
       winid = existing_win
-      logger.debug("terminal", "Recovered existing Claude terminal")
 
       -- Check if we're currently in this recovered terminal
       local current_win_id = vim.api.nvim_get_current_win()
@@ -488,6 +475,15 @@ end
 --- @return boolean
 function M.is_available()
   return true -- Native provider is always available
+end
+
+--- Get the terminal job channel ID for text injection
+--- @return number|nil The job channel ID, or nil if no terminal is active
+function M.get_job_channel()
+  if is_valid() and jobid and jobid > 0 then
+    return jobid
+  end
+  return nil
 end
 
 --- @type ClaudeCodeTerminalProvider

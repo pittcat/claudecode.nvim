@@ -22,7 +22,6 @@ function M.setup()
   local runtime_dir = vim.env.XDG_RUNTIME_DIR or "/tmp"
   state.socket_path = runtime_dir .. "/claude-island-ide.sock"
 
-  logger.debug("ide_rpc", "Initialized with socket path: " .. state.socket_path)
   return true
 end
 
@@ -44,21 +43,18 @@ end
 ---@return boolean success Whether the request was sent successfully
 function M.send_request(request, callback)
   if not M.is_available() then
-    logger.debug("ide_rpc", "ClaudeIsland not available")
     return false
   end
 
   -- Create socket connection
   local socket = vim.loop.new_pipe(false)
   if not socket then
-    logger.error("ide_rpc", "Failed to create socket")
     return false
   end
 
   -- Connect to server
   socket:connect(state.socket_path, function(err)
     if err then
-      logger.error("ide_rpc", "Failed to connect: " .. err)
       socket:close()
       if callback then
         callback(false, "Connection failed: " .. err)
@@ -69,7 +65,6 @@ function M.send_request(request, callback)
     -- Encode request as JSON
     local ok, json = pcall(vim.json.encode, request)
     if not ok then
-      logger.error("ide_rpc", "Failed to encode request: " .. tostring(json))
       socket:close()
       if callback then
         callback(false, "Encoding failed")
@@ -80,7 +75,6 @@ function M.send_request(request, callback)
     -- Send request
     socket:write(json, function(write_err)
       if write_err then
-        logger.error("ide_rpc", "Failed to write: " .. write_err)
         socket:close()
         if callback then
           callback(false, "Write failed: " .. write_err)
@@ -92,7 +86,6 @@ function M.send_request(request, callback)
       local response_data = ""
       socket:read_start(function(read_err, chunk)
         if read_err then
-          logger.error("ide_rpc", "Failed to read: " .. read_err)
           socket:close()
           if callback then
             callback(false, "Read failed: " .. read_err)
@@ -109,14 +102,11 @@ function M.send_request(request, callback)
 
           local decode_ok, response = pcall(vim.json.decode, response_data)
           if not decode_ok then
-            logger.error("ide_rpc", "Failed to decode response: " .. tostring(response))
             if callback then
               callback(false, "Decode failed")
             end
             return
           end
-
-          logger.debug("ide_rpc", "Received response: " .. vim.inspect(response))
 
           if callback then
             vim.schedule(function()
@@ -149,13 +139,11 @@ function M.send_at_mention(file_path, session_id, line_start, line_end, callback
 
   return M.send_request(request, function(success, response)
     if success and response and response.success then
-      logger.info("ide_rpc", "Sent @ mention for " .. file_path)
       if callback then
         callback(true, response)
       end
     else
       local error_msg = response and response.message or "Unknown error"
-      logger.error("ide_rpc", "Failed to send @ mention: " .. error_msg)
       if callback then
         callback(false, error_msg)
       end
