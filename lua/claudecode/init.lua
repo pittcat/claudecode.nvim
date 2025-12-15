@@ -284,30 +284,6 @@ end
 function M.send_at_mention(file_path, start_line, end_line, context)
   context = context or "command"
 
-  -- Try ClaudeIsland RPC first if available
-  local ide_rpc = require("claudecode.ide_rpc")
-  if ide_rpc.is_available() then
-    logger.debug(context, "Using ClaudeIsland RPC for @ mention")
-
-    -- Convert 0-indexed to 1-indexed for ClaudeIsland (it expects 1-indexed)
-    local adjusted_start = start_line and (start_line + 1) or nil
-    local adjusted_end = end_line and (end_line + 1) or nil
-
-    local sent = ide_rpc.send_at_mention(file_path, nil, adjusted_start, adjusted_end, function(success, response)
-      if success then
-        logger.info(context, "Successfully sent @ mention via ClaudeIsland: " .. file_path)
-      else
-        logger.error(context, "ClaudeIsland RPC failed: " .. tostring(response))
-      end
-    end)
-
-    if sent then
-      return true, nil
-    else
-      logger.debug(context, "ClaudeIsland RPC send failed, falling back to WebSocket")
-    end
-  end
-
   if not M.state.server then
     logger.error(context, "Claude Code integration is not running")
     return false, "Claude Code integration is not running"
@@ -381,10 +357,6 @@ function M.setup(opts)
   -- vim.g.claudecode_user_config is no longer needed as config values are passed directly.
 
   logger.setup(M.state.config)
-
-  -- Initialize IDE RPC client for ClaudeIsland integration
-  local ide_rpc = require("claudecode.ide_rpc")
-  ide_rpc.setup()
 
   -- Setup terminal module: always try to call setup to pass terminal_cmd and env,
   -- even if terminal_opts (for split_side etc.) are not provided.
