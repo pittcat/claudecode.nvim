@@ -286,14 +286,14 @@ local function is_terminal_visible(bufnr)
 
   -- 获取当前 tab 的所有窗口的 buffer 列表
   local current_tab_buffers = vim.fn.tabpagebuflist()
-  
+
   -- 检查目标 buffer 是否在当前 tab 中
   for _, buf in ipairs(current_tab_buffers) do
     if buf == bufnr then
       return true
     end
   end
-  
+
   return false
 end
 
@@ -319,7 +319,6 @@ local function find_terminal_tab(bufnr)
 
   return nil
 end
-
 
 --- Applies terminal display corruption fixes
 --- @param bufnr number Terminal buffer number
@@ -426,8 +425,15 @@ local function ensure_terminal_visible_no_focus(opts_override, cmd_args)
 
   local active_bufnr = provider.get_active_bufnr()
   local current_tab = vim.fn.tabpagenr()
-  
-  logger.debug("terminal", string.format("ensure_terminal_visible_no_focus: active_bufnr=%s, current_tab=%d", tostring(active_bufnr), current_tab))
+
+  logger.debug(
+    "terminal",
+    string.format(
+      "ensure_terminal_visible_no_focus: active_bufnr=%s, current_tab=%d",
+      tostring(active_bufnr),
+      current_tab
+    )
+  )
 
   -- 首先检查终端是否在当前 tab 可见
   if is_terminal_visible(active_bufnr) then

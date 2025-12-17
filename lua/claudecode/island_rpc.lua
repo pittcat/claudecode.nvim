@@ -200,7 +200,7 @@ local function get_terminal_status(trace_id)
       terminal_ready = false,
       bufnr = nil,
       job_channel = nil,
-      error = "TERMINAL_MODULE_NOT_LOADED"
+      error = "TERMINAL_MODULE_NOT_LOADED",
     }
   end
 
@@ -229,7 +229,7 @@ function M.handle_rpc(payload)
       trace_id = trace_id,
       ok = false,
       error = "INVALID_PAYLOAD_TYPE",
-      data = nil
+      data = nil,
     }
   end
 
@@ -245,18 +245,16 @@ function M.handle_rpc(payload)
       data = {
         nvim_pid = vim.fn.getpid(),
         pong = true,
-      }
+      },
     }
-
   elseif action == "status" then
     local status = get_terminal_status(trace_id)
     return {
       trace_id = trace_id,
       ok = true,
       error = nil,
-      data = status
+      data = status,
     }
-
   elseif action == "send_text" then
     local text_payload = payload.payload or {}
     local text = text_payload.text or ""
@@ -268,7 +266,7 @@ function M.handle_rpc(payload)
         trace_id = trace_id,
         ok = false,
         error = "EMPTY_TEXT",
-        data = nil
+        data = nil,
       }
     end
 
@@ -288,7 +286,7 @@ function M.handle_rpc(payload)
         trace_id = trace_id,
         ok = false,
         error = "Terminal module not found",
-        data = nil
+        data = nil,
       }
     end
 
@@ -298,7 +296,7 @@ function M.handle_rpc(payload)
         trace_id = trace_id,
         ok = false,
         error = "No active terminal buffer",
-        data = nil
+        data = nil,
       }
     end
 
@@ -307,7 +305,7 @@ function M.handle_rpc(payload)
         trace_id = trace_id,
         ok = false,
         error = "Invalid terminal buffer",
-        data = nil
+        data = nil,
       }
     end
 
@@ -327,9 +325,8 @@ function M.handle_rpc(payload)
         nvim_pid = vim.fn.getpid(),
         terminal_ready = success,
         injected_bytes = injected_bytes,
-      }
+      },
     }
-
   elseif action == "focus_terminal" then
     local term = get_terminal_module()
     if term and term.open then
@@ -341,23 +338,22 @@ function M.handle_rpc(payload)
         data = {
           nvim_pid = vim.fn.getpid(),
           focused = true,
-        }
+        },
       }
     else
       return {
         trace_id = trace_id,
         ok = false,
         error = "TERMINAL_MODULE_NOT_AVAILABLE",
-        data = nil
+        data = nil,
       }
     end
-
   else
     return {
       trace_id = trace_id,
       ok = false,
       error = "UNKNOWN_ACTION",
-      data = nil
+      data = nil,
     }
   end
 end

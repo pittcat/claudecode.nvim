@@ -94,7 +94,6 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
     on_exit = function(job_id, exit_code, _)
       vim.schedule(function()
         if job_id == jobid then
-
           -- Ensure we are operating on the correct window and buffer before closing
           local current_winid_for_job = winid
           local current_bufnr_for_job = bufnr

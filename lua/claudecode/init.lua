@@ -295,7 +295,7 @@ function M.send_at_mention(file_path, start_line, end_line, context)
           break
         end
       end
-      
+
       if not terminal_in_current_tab then
         -- Find which tab has the terminal
         for tabnr = 1, vim.fn.tabpagenr("$") do
@@ -1245,7 +1245,9 @@ function M._create_commands()
         executing = "Executing",
         completed = "Completed",
       }
-      print(string.format("Claude Code monitoring status: %s (%s)", state_display[state_name] or state_name, state_name))
+      print(
+        string.format("Claude Code monitoring status: %s (%s)", state_display[state_name] or state_name, state_name)
+      )
       print(string.format("Uptime: %.1f seconds", (status.uptime or 0) / 1000))
     else
       print("Claude Code monitoring system not enabled")
@@ -1641,7 +1643,6 @@ function M._add_paths_to_claude(file_paths, options)
           logger.error(context, "Failed to add file: " .. file_path .. " - " .. (error_msg or "unknown error"))
         end
       end
-
 
       if end_index < total_count then
         vim.defer_fn(function()
