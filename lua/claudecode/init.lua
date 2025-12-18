@@ -202,16 +202,25 @@ function M.process_mention_queue(from_new_connection)
     if (current_time - mention.timestamp) > M.state.config.queue_timeout then
       -- Skip expired mention
     else
-      -- Directly broadcast without going through the queue system to avoid infinite recursion
+      -- Get session ID based on current tab or global
+      local terminal_mod = require("claudecode.terminal")
+      local session_id
+      if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
+        session_id = vim.api.nvim_get_current_tabpage()
+      else
+        session_id = "global"
+      end
+
+      -- Send to specific session instead of broadcasting
       local params = {
         filePath = mention.file_path,
         lineStart = mention.start_line,
         lineEnd = mention.end_line,
       }
 
-      local broadcast_success = M.state.server.broadcast("at_mentioned", params)
-      if not broadcast_success then
-        logger.error("queue", "Failed to send queued @ mention: " .. mention.file_path)
+      local send_success, send_error = M.state.server.send_to_session(session_id, "at_mentioned", params)
+      if not send_success then
+        logger.error("queue", "Failed to send queued @ mention to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error") .. " - " .. mention.file_path)
       end
     end
 
@@ -1559,16 +1568,26 @@ function M._broadcast_at_mention(file_path, start_line, end_line)
     lineEnd = end_line,
   }
 
-  -- For tests or when explicitly configured, broadcast immediately without queuing
+  -- For tests or when explicitly configured, send immediately without queuing
   if
     (M.state.config and M.state.config.disable_broadcast_debouncing)
     or (package.loaded["busted"] and not (M.state.config and M.state.config.enable_broadcast_debouncing_in_tests))
   then
-    local broadcast_success = M.state.server.broadcast("at_mentioned", params)
-    if broadcast_success then
+    -- Get session ID based on current tab or global
+    local terminal_mod = require("claudecode.terminal")
+    local session_id
+    if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
+      session_id = vim.api.nvim_get_current_tabpage()
+    else
+      session_id = "global"
+    end
+
+    local send_success, send_error = M.state.server.send_to_session(session_id, "at_mentioned", params)
+    if send_success then
+      logger.debug("command", "Sent @ mention to session:", session_id, "file:", formatted_path)
       return true, nil
     else
-      local error_msg = "Failed to broadcast " .. (is_directory and "directory" or "file") .. " " .. formatted_path
+      local error_msg = "Failed to send " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. " to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error")
       logger.error("command", error_msg)
       return false, error_msg
     end

@@ -13,6 +13,7 @@ local M = {}
 ---@field port number|nil The port server is running on
 ---@field auth_token string|nil The authentication token for validating connections
 ---@field clients table<string, WebSocketClient> A list of connected clients
+---@field clients_by_session table<string|number, WebSocketClient> Clients indexed by session ID
 ---@field handlers table Message handlers by method name
 ---@field ping_timer table|nil Timer for sending pings
 M.state = {
@@ -20,6 +21,7 @@ M.state = {
   port = nil,
   auth_token = nil,
   clients = {},
+  clients_by_session = {},
   handlers = {},
   ping_timer = nil,
 }
@@ -55,6 +57,10 @@ function M.start(config, auth_token)
     on_connect = function(client)
       M.state.clients[client.id] = client
 
+      -- Initialize session tracking
+      client._session_id = nil
+      client._session_initialized = false
+
       -- Log connection with auth status
       if M.state.auth_token then
         logger.debug("server", "Authenticated WebSocket client connected:", client.id)
@@ -72,6 +78,13 @@ function M.start(config, auth_token)
     end,
     on_disconnect = function(client, code, reason)
       M.state.clients[client.id] = nil
+
+      -- Clean up session mapping if client was registered
+      if client._session_id then
+        M.state.clients_by_session[client._session_id] = nil
+        logger.debug("server", "Client disconnected, session_id:", client._session_id)
+      end
+
       logger.debug(
         "server",
         "WebSocket client disconnected:",
@@ -141,6 +154,19 @@ function M._handle_message(client, message)
       data = "Invalid JSON",
     })
     return
+  end
+
+  -- Extract session ID from session_init message if not yet initialized
+  if not client._session_initialized then
+    if parsed.type == "session_init" and parsed.session_id then
+      client._session_id = parsed.session_id
+      M.state.clients_by_session[parsed.session_id] = client
+      client._session_initialized = true
+      logger.debug("server", "Client registered with session_id:", parsed.session_id)
+      return -- Don't process further, initialization complete
+    end
+    -- If it's not a session_init message, fall through to normal processing
+    -- The client might register later via environment variable or other means
   end
 
   if type(parsed) ~= "table" or parsed.jsonrpc ~= "2.0" then
@@ -420,6 +446,44 @@ function M.broadcast(method, params)
   local json_message = vim.json.encode(message)
 
   tcp_server.broadcast(M.state.server, json_message)
+  return true
+end
+
+---Send message to a specific session
+---@param session_id string|number Session ID (usually tab number or "global")
+---@param method string Message type/method
+---@param params table Message data
+---@return boolean success Whether message was sent successfully
+---@return string? error_msg Error message if failed
+function M.send_to_session(session_id, method, params)
+  if not M.state.server then
+    return false, "Server is not running"
+  end
+
+  local client = M.state.clients_by_session[session_id]
+  if not client then
+    logger.warn("server", "No client found for session_id:", session_id)
+    return false, "No client connected for this session"
+  end
+
+  local message = {
+    jsonrpc = "2.0",
+    method = method,
+    params = params or vim.empty_dict(),
+  }
+
+  local json_message = vim.json.encode(message)
+
+  local success, send_error = pcall(function()
+    client.send(json_message)
+  end)
+
+  if not success then
+    logger.error("server", "Failed to send message to session:", session_id, "error:", send_error)
+    return false, "Failed to send message"
+  end
+
+  logger.debug("server", "Sent message to session:", session_id, "type:", method)
   return true
 end
 

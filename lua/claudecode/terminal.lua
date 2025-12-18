@@ -394,6 +394,11 @@ function M.get_claude_command_and_env(cmd_args)
     env_table[key] = value
   end
 
+  -- Add session ID for tab-scoped sessions
+  if defaults.session_scope == "tab" then
+    env_table["CLAUDE_SESSION_ID"] = tostring(vim.api.nvim_get_current_tabpage())
+  end
+
   return cmd_string, env_table
 end
 
