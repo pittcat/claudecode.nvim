@@ -220,7 +220,21 @@ function M.process_mention_queue(from_new_connection)
 
       local send_success, send_error = M.state.server.send_to_session(session_id, "at_mentioned", params)
       if not send_success then
-        logger.error("queue", "Failed to send queued @ mention to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error") .. " - " .. mention.file_path)
+        -- If no client is connected for this session, it's not necessarily an error
+        -- This can happen when tab is closed or terminal not yet started
+        if send_error and send_error:match("No client connected") then
+          if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
+            logger.debug("queue", "No client connected for tab " .. tostring(session_id) .. ", skipping @ mention: " .. mention.file_path)
+          else
+            -- For global mode, fall back to broadcast if session-specific send fails
+            local broadcast_success = M.state.server.broadcast("at_mentioned", params)
+            if not broadcast_success then
+              logger.error("queue", "Failed to send queued @ mention (fallback to broadcast failed): " .. mention.file_path)
+            end
+          end
+        else
+          logger.error("queue", "Failed to send queued @ mention to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error") .. " - " .. mention.file_path)
+        end
       end
     end
 
@@ -1587,9 +1601,29 @@ function M._broadcast_at_mention(file_path, start_line, end_line)
       logger.debug("command", "Sent @ mention to session:", session_id, "file:", formatted_path)
       return true, nil
     else
-      local error_msg = "Failed to send " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. " to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error")
-      logger.error("command", error_msg)
-      return false, error_msg
+      -- If no client is connected for this session, it's not necessarily an error
+      -- This can happen when tab is closed or terminal not yet started
+      if send_error and send_error:match("No client connected") then
+        if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
+          logger.debug("command", "No client connected for tab " .. tostring(session_id) .. ", skipping immediate @ mention: " .. formatted_path)
+          return true, nil -- Don't treat as error, just skip
+        else
+          -- For global mode, fall back to broadcast if session-specific send fails
+          local broadcast_success = M.state.server.broadcast("at_mentioned", params)
+          if broadcast_success then
+            logger.debug("command", "Sent @ mention via broadcast fallback, file:", formatted_path)
+            return true, nil
+          else
+            local error_msg = "Failed to send " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. " (broadcast fallback failed)"
+            logger.error("command", error_msg)
+            return false, error_msg
+          end
+        end
+      else
+        local error_msg = "Failed to send " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. " to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error")
+        logger.error("command", error_msg)
+        return false, error_msg
+      end
     end
   end
 

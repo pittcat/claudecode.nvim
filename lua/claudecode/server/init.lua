@@ -462,7 +462,7 @@ function M.send_to_session(session_id, method, params)
 
   local client = M.state.clients_by_session[session_id]
   if not client then
-    logger.warn("server", "No client found for session_id:", session_id)
+    -- Don't log as warning - this is a normal situation when tab is closed or terminal not yet started
     return false, "No client connected for this session"
   end
 
