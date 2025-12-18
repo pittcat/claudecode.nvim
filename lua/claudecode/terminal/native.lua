@@ -6,40 +6,72 @@ local M = {}
 local logger = require("claudecode.logger")
 local utils = require("claudecode.utils")
 
-local bufnr = nil
-local winid = nil
-local jobid = nil
+-- State table: key -> terminal state {bufnr, winid, jobid}
+local terminals_by_key = {}
 local tip_shown = false
 
 ---@type ClaudeCodeTerminalConfig
 local config = require("claudecode.terminal").defaults
 
-local function cleanup_state()
-  bufnr = nil
-  winid = nil
-  jobid = nil
+---Get terminal state for scope key
+---@param scope_key string|number
+---@return table|nil
+local function get_terminal_for_scope(scope_key)
+  return terminals_by_key[scope_key]
 end
 
-local function is_valid()
-  -- First check if we have a valid buffer
-  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
-    cleanup_state()
+---Set terminal state for scope key
+---@param scope_key string|number
+---@param state table Terminal state {bufnr, winid, jobid}
+local function set_terminal_for_scope(scope_key, state)
+  terminals_by_key[scope_key] = state
+end
+
+---Clear terminal state for scope key
+---@param scope_key string|number
+local function clear_terminal_for_scope(scope_key)
+  terminals_by_key[scope_key] = nil
+end
+
+---Get current scope key based on config
+---@return string|number
+local function get_current_scope_key()
+  local terminal_mod = require("claudecode.terminal")
+  if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
+    return vim.api.nvim_get_current_tabpage()
+  else
+    return "global"
+  end
+end
+
+---Check if terminal is valid for scope key
+---@param scope_key string|number
+---@return boolean
+local function is_valid_for_scope(scope_key)
+  local term_state = get_terminal_for_scope(scope_key)
+  if not term_state then
+    return false
+  end
+
+  -- Check if buffer is valid
+  if not term_state.bufnr or not vim.api.nvim_buf_is_valid(term_state.bufnr) then
+    clear_terminal_for_scope(scope_key)
     return false
   end
 
   -- If buffer is valid but window is invalid, try to find a window displaying this buffer
-  if not winid or not vim.api.nvim_win_is_valid(winid) then
-    -- Search all windows for our terminal buffer
+  if not term_state.winid or not vim.api.nvim_win_is_valid(term_state.winid) then
     local windows = vim.api.nvim_list_wins()
     for _, win in ipairs(windows) do
-      if vim.api.nvim_win_get_buf(win) == bufnr then
-        -- Found a window displaying our terminal buffer, update the tracked window ID
-        winid = win
+      if vim.api.nvim_win_get_buf(win) == term_state.bufnr then
+        term_state.winid = win
+        set_terminal_for_scope(scope_key, term_state) -- Update state
+        logger.debug("terminal", "Recovered terminal window ID for scope:", scope_key, "win:", win)
         return true
       end
     end
     -- Buffer exists but no window displays it - this is normal for hidden terminals
-    return true -- Buffer is valid even though not visible
+    return true
   end
 
   -- Both buffer and window are valid
@@ -50,15 +82,18 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
   focus = utils.normalize_focus(focus)
   config = effective_config -- 保存配置以供后续使用
 
-  if is_valid() then -- Should not happen if called correctly, but as a safeguard
+  -- Get scope key
+  local scope_key = effective_config.scope_key or "global"
+
+  if is_valid_for_scope(scope_key) then
+    -- Terminal exists, focus it
+    local term_state = get_terminal_for_scope(scope_key)
     if focus then
-      -- Focus existing terminal: switch to terminal window and enter insert mode
-      vim.api.nvim_set_current_win(winid)
+      vim.api.nvim_set_current_win(term_state.winid)
       if config.auto_insert_mode then
         vim.cmd("startinsert")
       end
     end
-    -- If focus=false, preserve user context by staying in current window
     return true
   end
 
@@ -88,17 +123,20 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
     term_cmd_arg = { cmd_string }
   end
 
-  jobid = vim.fn.termopen(term_cmd_arg, {
+  local new_jobid = vim.fn.termopen(term_cmd_arg, {
     env = env_table,
     cwd = effective_config.cwd,
     on_exit = function(job_id, exit_code, _)
       vim.schedule(function()
-        if job_id == jobid then
-          -- Ensure we are operating on the correct window and buffer before closing
-          local current_winid_for_job = winid
-          local current_bufnr_for_job = bufnr
+        -- Only clean up matching scope
+        local term_state_for_exit = get_terminal_for_scope(scope_key)
+        if term_state_for_exit and job_id == term_state_for_exit.jobid then
+          logger.debug("terminal", "Terminal process exited for scope:", scope_key)
 
-          cleanup_state() -- Clear our managed state first
+          local current_winid_for_job = term_state_for_exit.winid
+          local current_bufnr_for_job = term_state_for_exit.bufnr
+
+          clear_terminal_for_scope(scope_key)
 
           if not effective_config.auto_close then
             return
@@ -106,13 +144,10 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
 
           if current_winid_for_job and vim.api.nvim_win_is_valid(current_winid_for_job) then
             if current_bufnr_for_job and vim.api.nvim_buf_is_valid(current_bufnr_for_job) then
-              -- Optional: Check if the window still holds the same terminal buffer
               if vim.api.nvim_win_get_buf(current_winid_for_job) == current_bufnr_for_job then
                 vim.api.nvim_win_close(current_winid_for_job, true)
               end
             else
-              -- Buffer is invalid, but window might still be there (e.g. if user changed buffer in term window)
-              -- Still try to close the window we tracked.
               vim.api.nvim_win_close(current_winid_for_job, true)
             end
           end
@@ -121,43 +156,44 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
     end,
   })
 
-  if not jobid or jobid == 0 then
+  if not new_jobid or new_jobid == 0 then
     vim.notify("Failed to open native terminal.", vim.log.levels.ERROR)
     vim.api.nvim_win_close(new_winid, true)
     vim.api.nvim_set_current_win(original_win)
-    cleanup_state()
     return false
   end
 
-  winid = new_winid
-  bufnr = vim.api.nvim_get_current_buf()
-  vim.bo[bufnr].bufhidden = "hide"
-  -- buftype=terminal is set by termopen
+  local new_bufnr = vim.api.nvim_get_current_buf()
+  vim.bo[new_bufnr].bufhidden = "hide"
+
+  -- Save to corresponding scope
+  set_terminal_for_scope(scope_key, {
+    winid = new_winid,
+    bufnr = new_bufnr,
+    jobid = new_jobid,
+  })
 
   -- Fix terminal display corruption with reduced scrollback for better performance
   local scrollback_size = 1000 -- Reduced from 10000 to prevent render lag
-  vim.api.nvim_buf_set_option(bufnr, "scrollback", scrollback_size)
+  vim.api.nvim_buf_set_option(new_bufnr, "scrollback", scrollback_size)
 
   -- Apply minimal display fixes to prevent flickering
   vim.schedule(function()
-    if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_win_is_valid(winid) then
-      -- Remove the immediate redraw to prevent initial flicker
-      -- vim.cmd("redraw!")  -- REMOVED: This causes initial screen flash
-
+    if vim.api.nvim_buf_is_valid(new_bufnr) and vim.api.nvim_win_is_valid(new_winid) then
       -- Set up throttled autocmd to handle display corruption only when needed
       local last_redraw = 0
       local redraw_throttle = 200 -- Minimum 200ms between redraws
 
       vim.api.nvim_create_autocmd("BufEnter", {
-        buffer = bufnr,
+        buffer = new_bufnr,
         callback = function()
           local now = vim.loop.hrtime() / 1000000 -- Convert to milliseconds
           if now - last_redraw > redraw_throttle then
             vim.schedule(function()
-              if vim.api.nvim_get_current_buf() == bufnr then
+              if vim.api.nvim_get_current_buf() == new_bufnr then
                 -- Only redraw if there are visible display issues
                 -- Check if terminal content appears corrupted before redrawing
-                local lines = vim.api.nvim_buf_get_lines(bufnr, -10, -1, false)
+                local lines = vim.api.nvim_buf_get_lines(new_bufnr, -10, -1, false)
                 local has_corruption = false
                 for _, line in ipairs(lines) do
                   if line:match("\27%[[") then -- Check for incomplete ANSI sequences
@@ -180,13 +216,11 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
   end)
 
   if focus then
-    -- Focus the terminal: switch to terminal window and enter insert mode
-    vim.api.nvim_set_current_win(winid)
+    vim.api.nvim_set_current_win(new_winid)
     if config.auto_insert_mode then
       vim.cmd("startinsert")
     end
   else
-    -- Preserve user context: return to the window they were in before terminal creation
     vim.api.nvim_set_current_win(original_win)
   end
 
@@ -197,66 +231,74 @@ local function open_terminal(cmd_string, env_table, effective_config, focus)
   return true
 end
 
-local function close_terminal()
-  if is_valid() then
-    -- Closing the window should trigger on_exit of the job if the process is still running,
-    -- which then calls cleanup_state.
-    -- If the job already exited, on_exit would have cleaned up.
-    -- This direct close is for user-initiated close.
-    vim.api.nvim_win_close(winid, true)
-    cleanup_state() -- Cleanup after explicit close
+local function close_terminal(scope_key)
+  if is_valid_for_scope(scope_key) then
+    local term_state = get_terminal_for_scope(scope_key)
+    if term_state and term_state.winid and vim.api.nvim_win_is_valid(term_state.winid) then
+      vim.api.nvim_win_close(term_state.winid, true)
+    end
+    clear_terminal_for_scope(scope_key)
   end
 end
 
-local function focus_terminal()
-  if is_valid() then
-    vim.api.nvim_set_current_win(winid)
-    if config.auto_insert_mode then
-      vim.cmd("startinsert")
+local function focus_terminal(scope_key)
+  if is_valid_for_scope(scope_key) then
+    local term_state = get_terminal_for_scope(scope_key)
+    if term_state and term_state.winid and vim.api.nvim_win_is_valid(term_state.winid) then
+      vim.api.nvim_set_current_win(term_state.winid)
+      if config.auto_insert_mode then
+        vim.cmd("startinsert")
+      end
     end
   end
 end
 
-local function is_terminal_visible()
-  -- Check if our terminal buffer exists and is displayed in any window
-  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+local function is_terminal_visible(scope_key)
+  local term_state = get_terminal_for_scope(scope_key)
+  if not term_state or not term_state.bufnr or not vim.api.nvim_buf_is_valid(term_state.bufnr) then
     return false
   end
 
   local windows = vim.api.nvim_list_wins()
   for _, win in ipairs(windows) do
-    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == bufnr then
-      -- Update our tracked window ID if we find the buffer in a different window
-      winid = win
+    if vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == term_state.bufnr then
+      term_state.winid = win
+      set_terminal_for_scope(scope_key, term_state)
       return true
     end
   end
 
-  -- Buffer exists but no window displays it
-  winid = nil
+  term_state.winid = nil
+  set_terminal_for_scope(scope_key, term_state)
   return false
 end
 
-local function hide_terminal()
-  -- Hide the terminal window but keep the buffer and job alive
-  if bufnr and vim.api.nvim_buf_is_valid(bufnr) and winid and vim.api.nvim_win_is_valid(winid) then
-    -- Close the window - this preserves the buffer and job
-    vim.api.nvim_win_close(winid, false)
-    winid = nil -- Clear window reference
+local function hide_terminal(scope_key)
+  local term_state = get_terminal_for_scope(scope_key)
+  if not term_state or not term_state.winid or not vim.api.nvim_win_is_valid(term_state.winid) then
+    logger.debug("terminal", "No valid terminal window to hide for scope:", scope_key)
+    return
   end
+
+  vim.api.nvim_win_close(term_state.winid, false)
+  term_state.winid = nil
+  set_terminal_for_scope(scope_key, term_state)
+  logger.debug("terminal", "Hidden terminal for scope:", scope_key)
 end
 
-local function show_hidden_terminal(effective_config, focus)
-  -- Show an existing hidden terminal buffer in a new window
-  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+local function show_hidden_terminal(scope_key, effective_config, focus)
+  local term_state = get_terminal_for_scope(scope_key)
+  if not term_state or not term_state.bufnr or not vim.api.nvim_buf_is_valid(term_state.bufnr) then
+    logger.error("terminal", "No valid hidden terminal buffer to show for scope:", scope_key)
     return false
   end
+
   config = effective_config -- 保存配置以供后续使用
 
-  -- Check if it's already visible
-  if is_terminal_visible() then
+  if is_terminal_visible(scope_key) then
+    logger.debug("terminal", "Terminal already visible for scope:", scope_key)
     if focus then
-      focus_terminal()
+      focus_terminal(scope_key)
     end
     return true
   end
@@ -279,42 +321,22 @@ local function show_hidden_terminal(effective_config, focus)
   vim.api.nvim_win_set_height(new_winid, full_height)
 
   -- Set the existing buffer in the new window
-  vim.api.nvim_win_set_buf(new_winid, bufnr)
-  winid = new_winid
+  vim.api.nvim_win_set_buf(new_winid, term_state.bufnr)
+
+  term_state.winid = new_winid
+  set_terminal_for_scope(scope_key, term_state)
 
   if focus then
-    -- Focus the terminal: switch to terminal window and enter insert mode
-    vim.api.nvim_set_current_win(winid)
+    vim.api.nvim_set_current_win(new_winid)
     if config.auto_insert_mode then
       vim.cmd("startinsert")
     end
   else
-    -- Preserve user context: return to the window they were in before showing terminal
     vim.api.nvim_set_current_win(original_win)
   end
 
+  logger.debug("terminal", "Showed hidden terminal for scope:", scope_key)
   return true
-end
-
-local function find_existing_claude_terminal()
-  local buffers = vim.api.nvim_list_bufs()
-  for _, buf in ipairs(buffers) do
-    if vim.api.nvim_buf_is_valid(buf) and vim.api.nvim_buf_get_option(buf, "buftype") == "terminal" then
-      -- Check if this is a Claude Code terminal by examining the buffer name or terminal job
-      local buf_name = vim.api.nvim_buf_get_name(buf)
-      -- Terminal buffers often have names like "term://..." that include the command
-      if buf_name:match("claude") then
-        -- Additional check: see if there's a window displaying this buffer
-        local windows = vim.api.nvim_list_wins()
-        for _, win in ipairs(windows) do
-          if vim.api.nvim_win_get_buf(win) == buf then
-            return buf, win
-          end
-        end
-      end
-    end
-  end
-  return nil, nil
 end
 
 ---Setup the terminal module
@@ -329,40 +351,27 @@ end
 --- @param focus boolean|nil
 function M.open(cmd_string, env_table, effective_config, focus)
   focus = utils.normalize_focus(focus)
+  local scope_key = effective_config.scope_key or "global"
 
-  if is_valid() then
-    -- Check if terminal exists but is hidden (no window)
-    if not winid or not vim.api.nvim_win_is_valid(winid) then
-      -- Terminal is hidden, show it by calling show_hidden_terminal
-      show_hidden_terminal(effective_config, focus)
+  if is_valid_for_scope(scope_key) then
+    local term_state = get_terminal_for_scope(scope_key)
+    if not term_state.winid or not vim.api.nvim_win_is_valid(term_state.winid) then
+      show_hidden_terminal(scope_key, effective_config, focus)
     else
-      -- Terminal is already visible
       if focus then
-        focus_terminal()
+        focus_terminal(scope_key)
       end
     end
   else
-    -- Check if there's an existing Claude terminal we lost track of
-    local existing_buf, existing_win = find_existing_claude_terminal()
-    if existing_buf and existing_win then
-      -- Recover the existing terminal
-      bufnr = existing_buf
-      winid = existing_win
-      -- Note: We can't recover the job ID easily, but it's less critical
-      if focus then
-        focus_terminal() -- Focus recovered terminal
-      end
-      -- If focus=false, preserve user context by staying in current window
-    else
-      if not open_terminal(cmd_string, env_table, effective_config, focus) then
-        vim.notify("Failed to open Claude terminal using native fallback.", vim.log.levels.ERROR)
-      end
+    if not open_terminal(cmd_string, env_table, effective_config, focus) then
+      vim.notify("Failed to open Claude terminal using native fallback.", vim.log.levels.ERROR)
     end
   end
 end
 
 function M.close()
-  close_terminal()
+  local scope_key = get_current_scope_key()
+  close_terminal(scope_key)
 end
 
 ---Simple toggle: always show/hide terminal regardless of focus
@@ -370,33 +379,22 @@ end
 ---@param env_table table
 ---@param effective_config ClaudeCodeTerminalConfig
 function M.simple_toggle(cmd_string, env_table, effective_config)
-  -- Check if we have a valid terminal buffer (process running)
-  local has_buffer = bufnr and vim.api.nvim_buf_is_valid(bufnr)
-  local is_visible = has_buffer and is_terminal_visible()
+  local scope_key = effective_config.scope_key or "global"
+  local has_terminal = get_terminal_for_scope(scope_key) ~= nil
+  local is_visible = has_terminal and is_terminal_visible(scope_key)
 
   if is_visible then
-    -- Terminal is visible, hide it (but keep process running)
-    hide_terminal()
+    hide_terminal(scope_key)
   else
-    -- Terminal is not visible
-    if has_buffer then
-      -- Terminal process exists but is hidden, show it
-      if not show_hidden_terminal(effective_config, true) then
-        logger.error("terminal", "Failed to show hidden terminal")
+    if has_terminal then
+      if show_hidden_terminal(scope_key, effective_config, true) then
+        logger.debug("terminal", "Showing hidden terminal for scope:", scope_key)
+      else
+        logger.error("terminal", "Failed to show hidden terminal for scope:", scope_key)
       end
     else
-      -- No terminal process exists, check if there's an existing one we lost track of
-      local existing_buf, existing_win = find_existing_claude_terminal()
-      if existing_buf and existing_win then
-        -- Recover the existing terminal
-        bufnr = existing_buf
-        winid = existing_win
-        focus_terminal()
-      else
-        -- No existing terminal found, create a new one
-        if not open_terminal(cmd_string, env_table, effective_config) then
-          vim.notify("Failed to open Claude terminal using native fallback (simple_toggle).", vim.log.levels.ERROR)
-        end
+      if not open_terminal(cmd_string, env_table, effective_config) then
+        vim.notify("Failed to open Claude terminal using native fallback (simple_toggle).", vim.log.levels.ERROR)
       end
     end
   end
@@ -407,49 +405,24 @@ end
 ---@param env_table table
 ---@param effective_config ClaudeCodeTerminalConfig
 function M.focus_toggle(cmd_string, env_table, effective_config)
-  -- Check if we have a valid terminal buffer (process running)
-  local has_buffer = bufnr and vim.api.nvim_buf_is_valid(bufnr)
-  local is_visible = has_buffer and is_terminal_visible()
+  local scope_key = effective_config.scope_key or "global"
+  local has_terminal = get_terminal_for_scope(scope_key) ~= nil
+  local is_visible = has_terminal and is_terminal_visible(scope_key)
 
-  if has_buffer then
-    -- Terminal process exists
-    if is_visible then
-      -- Terminal is visible - check if we're currently in it
-      local current_win_id = vim.api.nvim_get_current_win()
-      if winid == current_win_id then
-        -- We're in the terminal window, hide it (but keep process running)
-        hide_terminal()
-      else
-        -- Terminal is visible but we're not in it, focus it
-        focus_terminal()
-      end
+  if not is_visible then
+    if has_terminal then
+      show_hidden_terminal(scope_key, effective_config, true)
     else
-      -- Terminal process exists but is hidden, show it
-      if not show_hidden_terminal(effective_config, true) then
-        logger.error("terminal", "Failed to show hidden terminal")
-      end
+      open_terminal(cmd_string, env_table, effective_config, true)
     end
   else
-    -- No terminal process exists, check if there's an existing one we lost track of
-    local existing_buf, existing_win = find_existing_claude_terminal()
-    if existing_buf and existing_win then
-      -- Recover the existing terminal
-      bufnr = existing_buf
-      winid = existing_win
-
-      -- Check if we're currently in this recovered terminal
-      local current_win_id = vim.api.nvim_get_current_win()
-      if existing_win == current_win_id then
-        -- We're in the recovered terminal, hide it
-        hide_terminal()
+    local term_state = get_terminal_for_scope(scope_key)
+    if term_state and term_state.winid then
+      local current_win = vim.api.nvim_get_current_win()
+      if current_win == term_state.winid then
+        hide_terminal(scope_key)
       else
-        -- Focus the recovered terminal
-        focus_terminal()
-      end
-    else
-      -- No existing terminal found, create a new one
-      if not open_terminal(cmd_string, env_table, effective_config) then
-        vim.notify("Failed to open Claude terminal using native fallback (focus_toggle).", vim.log.levels.ERROR)
+        focus_terminal(scope_key)
       end
     end
   end
@@ -465,8 +438,10 @@ end
 
 --- @return number|nil
 function M.get_active_bufnr()
-  if is_valid() then
-    return bufnr
+  local scope_key = get_current_scope_key()
+  if is_valid_for_scope(scope_key) then
+    local term_state = get_terminal_for_scope(scope_key)
+    return term_state and term_state.bufnr or nil
   end
   return nil
 end
@@ -479,10 +454,30 @@ end
 --- Get the terminal job channel ID for text injection
 --- @return number|nil The job channel ID, or nil if no terminal is active
 function M.get_job_channel()
-  if is_valid() and jobid and jobid > 0 then
-    return jobid
+  local scope_key = get_current_scope_key()
+  if is_valid_for_scope(scope_key) then
+    local term_state = get_terminal_for_scope(scope_key)
+    if term_state and term_state.jobid and term_state.jobid > 0 then
+      return term_state.jobid
+    end
   end
   return nil
+end
+
+---Clean up terminal for specific scope (called when tab is closed)
+---@param scope_key string|number
+function M._cleanup_scope(scope_key)
+  close_terminal(scope_key)
+  logger.debug("terminal", "Cleaned up native terminal for scope:", scope_key)
+end
+
+---Clean up all terminals (called on exit)
+function M._cleanup_all_scopes()
+  for scope_key, _ in pairs(terminals_by_key) do
+    close_terminal(scope_key)
+  end
+  terminals_by_key = {}
+  logger.debug("terminal", "Cleaned up all native terminals")
 end
 
 --- @type ClaudeCodeTerminalProvider

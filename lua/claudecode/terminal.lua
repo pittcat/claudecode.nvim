@@ -26,12 +26,24 @@ local defaults = {
   cwd = nil, -- static cwd override
   git_repo_cwd = false, -- resolve to git root when spawning
   cwd_provider = nil, -- function(ctx) -> cwd string
+  -- Session scope control
+  session_scope = "global", -- "global" or "tab"
 }
 
 M.defaults = defaults
 
 -- Lazy load providers
 local providers = {}
+
+---Gets the current scope key based on session_scope config
+---@return string|number scope_key "global" or current tabpage number
+local function get_scope_key()
+  if defaults.session_scope == "tab" then
+    return vim.api.nvim_get_current_tabpage()
+  else
+    return "global"
+  end
+end
 
 ---Loads a terminal provider module
 ---@param provider_name string The name of the provider to load
@@ -236,6 +248,10 @@ local function build_config(opts_override)
       end
     end
   end
+
+  -- Generate scope key
+  local scope_key = get_scope_key()
+
   -- Resolve cwd at config-build time so providers receive it directly
   local cwd_ctx = {
     file = (function()
@@ -273,6 +289,7 @@ local function build_config(opts_override)
     auto_close = effective_config.auto_close,
     snacks_win_opts = effective_config.snacks_win_opts,
     cwd = resolved_cwd,
+    scope_key = scope_key,
   }
 end
 
@@ -318,35 +335,6 @@ local function find_terminal_tab(bufnr)
   end
 
   return nil
-end
-
---- Applies terminal display corruption fixes
---- @param bufnr number Terminal buffer number
---- @param winid number Terminal window ID
-local function apply_display_fixes(bufnr, winid)
-  if not defaults.fix_display_corruption then
-    return
-  end
-
-  -- Fix for ANSI escape sequence display corruption
-  vim.schedule(function()
-    if vim.api.nvim_buf_is_valid(bufnr) then
-      -- Set reduced scrollback buffer size for better performance
-      vim.api.nvim_buf_set_option(bufnr, "scrollback", 1000)
-
-      -- Set terminal colors to prevent display corruption without forced redraw
-      vim.api.nvim_buf_call(bufnr, function()
-        -- Remove forced redraw to prevent screen flashing
-        -- vim.cmd("redraw!")  -- REMOVED: This causes screen flash
-
-        -- Instead, just ensure proper terminal settings
-        vim.opt_local.number = false
-        vim.opt_local.relativenumber = false
-        vim.opt_local.cursorline = false
-        vim.opt_local.signcolumn = "no"
-      end)
-    end
-  end)
 end
 
 ---Gets the claude command string and necessary environment variables
@@ -629,6 +617,18 @@ function M.setup(user_term_config, p_terminal_cmd, p_env, p_bin_path)
       else
         vim.notify("claudecode.terminal.setup: Invalid cwd_provider type: " .. tostring(t), vim.log.levels.WARN)
       end
+    elseif k == "session_scope" then
+      if v == "global" or v == "tab" then
+        defaults.session_scope = v
+      else
+        vim.notify(
+          "claudecode.terminal.setup: Invalid session_scope: "
+            .. tostring(v)
+            .. ". Must be 'global' or 'tab'. Using default 'global'.",
+          vim.log.levels.WARN
+        )
+        defaults.session_scope = "global"
+      end
     else
       if k ~= "terminal_cmd" and k ~= "bin_path" then -- Avoid warning for terminal_cmd and bin_path if passed in user_term_config
         vim.notify("claudecode.terminal.setup: Unknown configuration key: " .. k, vim.log.levels.WARN)
@@ -638,6 +638,42 @@ function M.setup(user_term_config, p_terminal_cmd, p_env, p_bin_path)
 
   -- Setup providers with config
   get_provider().setup(defaults)
+
+  -- Tab close listener for tab-scoped sessions
+  if defaults.session_scope == "tab" then
+    local group = vim.api.nvim_create_augroup("ClaudeCodeTabSession", { clear = true })
+
+    vim.api.nvim_create_autocmd("TabLeave", {
+      group = group,
+      callback = function()
+        local closing_tab = vim.api.nvim_get_current_tabpage()
+
+        -- Delay 100ms to check if tab is really closed
+        vim.defer_fn(function()
+          if not vim.api.nvim_tabpage_is_valid(closing_tab) then
+            -- Tab is closed, notify provider to clean up
+            local provider = get_provider()
+            if provider._cleanup_scope then
+              provider._cleanup_scope(closing_tab)
+            end
+          end
+        end, 100)
+      end,
+      desc = "Clean up Claude Code session when tab is closed",
+    })
+
+    -- Ensure cleanup on exit
+    vim.api.nvim_create_autocmd("VimLeavePre", {
+      group = group,
+      callback = function()
+        local provider = get_provider()
+        if provider._cleanup_all_scopes then
+          provider._cleanup_all_scopes()
+        end
+      end,
+      desc = "Clean up all Claude Code sessions on exit",
+    })
+  end
 end
 
 ---Opens or focuses the Claude terminal.

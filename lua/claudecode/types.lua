@@ -95,6 +95,8 @@
 ---@field cwd string|nil                 -- static working directory for Claude terminal
 ---@field git_repo_cwd boolean|nil      -- use git root of current file/cwd as working directory
 ---@field cwd_provider? ClaudeCodeCwdProvider -- custom function to compute working directory
+---@field session_scope "global"|"tab"   -- session isolation level: global (default) or per-tab
+---@field scope_key? string|number       -- internal: scope identifier for current session
 
 -- Port range configuration
 ---@class ClaudeCodePortRange

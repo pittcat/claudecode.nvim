@@ -6,17 +6,51 @@ local M = {}
 local snacks_available, Snacks = pcall(require, "snacks")
 local logger = require("claudecode.logger")
 local utils = require("claudecode.utils")
-local terminal = nil
+
+-- State table: key -> terminal instance
+local terminals_by_key = {}
 
 --- @return boolean
 local function is_available()
   return snacks_available and Snacks and Snacks.terminal ~= nil
 end
 
+---Get terminal instance for scope key
+---@param scope_key string|number
+---@return table|nil
+local function get_terminal_for_scope(scope_key)
+  return terminals_by_key[scope_key]
+end
+
+---Set terminal instance for scope key
+---@param scope_key string|number
+---@param term_instance table|nil
+local function set_terminal_for_scope(scope_key, term_instance)
+  terminals_by_key[scope_key] = term_instance
+end
+
+---Clear terminal instance for scope key
+---@param scope_key string|number
+local function clear_terminal_for_scope(scope_key)
+  terminals_by_key[scope_key] = nil
+end
+
+---Get current scope key based on config
+---@return string|number
+local function get_current_scope_key()
+  local terminal_mod = require("claudecode.terminal")
+  if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
+    return vim.api.nvim_get_current_tabpage()
+  else
+    return "global"
+  end
+end
+
 ---Setup event handlers for terminal instance
 ---@param term_instance table The Snacks terminal instance
 ---@param config table Configuration options
-local function setup_terminal_events(term_instance, config)
+---@param scope_key string|number The scope key for this terminal
+local function setup_terminal_events(term_instance, config, scope_key)
   -- 事件节流变量
   local last_buf_enter = 0
   local last_win_enter = 0
@@ -86,8 +120,8 @@ local function setup_terminal_events(term_instance, config)
         logger.error("terminal", "Claude exited with code " .. exit_code .. ".\nCheck for any errors.")
       end
 
-      -- Clean up
-      terminal = nil
+      -- Clean up for this scope
+      clear_terminal_for_scope(scope_key)
       vim.schedule(function()
         term_instance:close({ buf = true })
         vim.cmd.checktime()
@@ -97,8 +131,8 @@ local function setup_terminal_events(term_instance, config)
 
   -- Handle buffer deletion
   term_instance:on("BufWipeout", function()
-    logger.debug("terminal", "Terminal buffer wiped")
-    terminal = nil
+    logger.debug("terminal", "Terminal buffer wiped for scope:", scope_key)
+    clear_terminal_for_scope(scope_key)
   end, { buf = true })
 end
 
@@ -178,6 +212,10 @@ function M.open(cmd_string, env_table, config, focus)
 
   focus = utils.normalize_focus(focus)
 
+  -- Get scope key
+  local scope_key = config.scope_key or "global"
+  local terminal = get_terminal_for_scope(scope_key)
+
   if terminal and terminal:buf_valid() then
     -- Check if terminal exists but is hidden (no window)
     if not terminal.win or not vim.api.nvim_win_is_valid(terminal.win) then
@@ -226,7 +264,6 @@ function M.open(cmd_string, env_table, config, focus)
     return
   end
 
-  local logger = require("claudecode.logger")
   logger.debug("snacks", "Creating new terminal with command: " .. cmd_string)
   local opts = build_opts(config, env_table, focus)
   logger.debug("snacks", "Terminal options: " .. vim.inspect(opts))
@@ -253,8 +290,8 @@ function M.open(cmd_string, env_table, config, focus)
       vim.api.nvim_win_set_option(term_instance.win, "colorcolumn", "")
     end
 
-    setup_terminal_events(term_instance, config)
-    terminal = term_instance
+    setup_terminal_events(term_instance, config, scope_key)
+    set_terminal_for_scope(scope_key, term_instance)
 
     -- 添加监听器来防止意外进入 insert 模式
     if not config.auto_insert_mode then
@@ -274,8 +311,6 @@ function M.open(cmd_string, env_table, config, focus)
       })
     end
   else
-    terminal = nil
-    local logger = require("claudecode.logger")
     local error_details = {}
     if not term_instance then
       table.insert(error_details, "Snacks.terminal.open() returned nil")
@@ -305,8 +340,14 @@ function M.close()
   if not is_available() then
     return
   end
+
+  -- Get current scope's terminal
+  local scope_key = get_current_scope_key()
+  local terminal = get_terminal_for_scope(scope_key)
+
   if terminal and terminal:buf_valid() then
     terminal:close()
+    clear_terminal_for_scope(scope_key)
   end
 end
 
@@ -320,21 +361,25 @@ function M.simple_toggle(cmd_string, env_table, config)
     return
   end
 
-  local logger = require("claudecode.logger")
   logger.debug("snacks", "simple_toggle called with command: " .. cmd_string)
   logger.debug("snacks", "Environment: " .. vim.inspect(env_table))
+
+  -- Get current scope's terminal
+  local scope_key = config.scope_key or "global"
+  local terminal = get_terminal_for_scope(scope_key)
 
   -- Check if terminal exists and is visible
   if terminal and terminal:buf_valid() and terminal:win_valid() then
     -- Terminal is visible, hide it
-    logger.debug("terminal", "Simple toggle: hiding visible terminal")
+    logger.debug("terminal", "Simple toggle: hiding visible terminal (scope:", scope_key, ")")
     terminal:toggle()
   elseif terminal and terminal:buf_valid() and not terminal:win_valid() then
     -- Terminal exists but not visible, show it
-    logger.debug("terminal", "Simple toggle: showing hidden terminal")
+    logger.debug("terminal", "Simple toggle: showing hidden terminal (scope:", scope_key, ")")
     terminal:toggle()
   else
     -- No terminal exists, create new one
+    logger.debug("terminal", "Simple toggle: creating new terminal (scope:", scope_key, ")")
     M.open(cmd_string, env_table, config, false) -- 不自动聚焦
   end
 end
@@ -349,11 +394,13 @@ function M.focus_toggle(cmd_string, env_table, config)
     return
   end
 
-  local logger = require("claudecode.logger")
+  -- Get current scope's terminal
+  local scope_key = config.scope_key or "global"
+  local terminal = get_terminal_for_scope(scope_key)
 
   -- Terminal exists, is valid, but not visible
   if terminal and terminal:buf_valid() and not terminal:win_valid() then
-    logger.debug("terminal", "Focus toggle: showing hidden terminal")
+    logger.debug("terminal", "Focus toggle: showing hidden terminal (scope:", scope_key, ")")
     terminal:toggle()
   -- Terminal exists, is valid, and is visible
   elseif terminal and terminal:buf_valid() and terminal:win_valid() then
@@ -362,11 +409,11 @@ function M.focus_toggle(cmd_string, env_table, config)
 
     -- you're IN it
     if claude_term_neovim_win_id == current_neovim_win_id then
-      logger.debug("terminal", "Focus toggle: hiding terminal (currently focused)")
+      logger.debug("terminal", "Focus toggle: hiding terminal (currently focused, scope:", scope_key, ")")
       terminal:toggle()
     -- you're NOT in it
     else
-      logger.debug("terminal", "Focus toggle: focusing terminal")
+      logger.debug("terminal", "Focus toggle: focusing terminal (scope:", scope_key, ")")
       vim.api.nvim_set_current_win(claude_term_neovim_win_id)
       if config.auto_insert_mode and terminal.buf and vim.api.nvim_buf_is_valid(terminal.buf) then
         if vim.api.nvim_buf_get_option(terminal.buf, "buftype") == "terminal" then
@@ -378,7 +425,7 @@ function M.focus_toggle(cmd_string, env_table, config)
     end
   -- No terminal exists
   else
-    logger.debug("terminal", "Focus toggle: creating new terminal")
+    logger.debug("terminal", "Focus toggle: creating new terminal (scope:", scope_key, ")")
     M.open(cmd_string, env_table, config)
   end
 end
@@ -394,6 +441,10 @@ end
 ---Get the active terminal buffer number
 ---@return number?
 function M.get_active_bufnr()
+  -- Get current scope's terminal
+  local scope_key = get_current_scope_key()
+  local terminal = get_terminal_for_scope(scope_key)
+
   if terminal and terminal:buf_valid() and terminal.buf then
     if vim.api.nvim_buf_is_valid(terminal.buf) then
       return terminal.buf
@@ -411,7 +462,31 @@ end
 ---For testing purposes
 ---@return table? terminal The terminal instance, or nil
 function M._get_terminal_for_test()
-  return terminal
+  local scope_key = get_current_scope_key()
+  return get_terminal_for_scope(scope_key)
+end
+
+---Clean up terminal for specific scope (called when tab is closed)
+---@param scope_key string|number
+function M._cleanup_scope(scope_key)
+  local terminal = get_terminal_for_scope(scope_key)
+  if terminal and terminal:buf_valid() then
+    terminal:close()
+  end
+  clear_terminal_for_scope(scope_key)
+
+  logger.debug("terminal", "Cleaned up scope:", scope_key)
+end
+
+---Clean up all terminals (called on exit)
+function M._cleanup_all_scopes()
+  for scope_key, terminal in pairs(terminals_by_key) do
+    if terminal and terminal:buf_valid() then
+      terminal:close()
+    end
+  end
+  terminals_by_key = {}
+  logger.debug("terminal", "Cleaned up all scopes")
 end
 
 ---@type ClaudeCodeTerminalProvider
