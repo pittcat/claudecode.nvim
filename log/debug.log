@@ -1,0 +1,493 @@
+=== ClaudeCode Debug Session Started at 2025-12-18 18:14:11 ===
+[02:17:20.000] [ClaudeCode] [monitoring] [DEBUG] Performing cleanup
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:50.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Activating anti-flicker mode
+[02:17:50.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Applied terminal window optimizations
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:50.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:51.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Restoring original settings
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:51.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:52.000] [ClaudeCode] [terminal] [DEBUG] Cleaned up all scopes
+[02:17:52.000] [ClaudeCode] [monitoring] [INFO] Shutting down monitoring system
+[02:17:52.000] [ClaudeCode] [intelligent_analyzer] [WARN] Cleaning up timer during stop
+[02:17:52.000] [ClaudeCode] [init] [INFO] Claude Code monitoring system shutdown
+[02:17:52.000] [ClaudeCode] [init] [INFO] Claude Code integration stopped
+
+=== ClaudeCode Debug Session Started at 2025-12-19 02:17:54 ===
+[02:17:54.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:54.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:54.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:54.000] [ClaudeCode] [notification] [DEBUG] Notification configured: {
+  backend = "terminal-notifier",
+  enabled = true,
+  include_project_path = true,
+  sound = "Glass",
+  terminal_notifier = {
+    activate = "com.apple.Terminal",
+    group = "claudecode",
+    ignore_dnd = true,
+    sender = "com.apple.Terminal"
+  },
+  title_prefix = "Claude Code"
+}
+[02:17:54.000] [ClaudeCode] [server] [DEBUG] Starting WebSocket server with authentication enabled
+[02:17:54.000] [ClaudeCode] [server] [DEBUG] Auth token length: 36
+[02:17:54.000] [ClaudeCode] [init] [INFO] ClaudeIsland RPC handler initialized
+[02:17:54.000] [ClaudeCode] [monitoring] [INFO] Initializing monitoring system
+[02:17:54.000] [ClaudeCode] [init] [INFO] Claude Code monitoring system initialized
+[02:17:54.000] [ClaudeCode] [monitoring] [INFO] Monitoring activation completed: 4/4 monitors activated
+[02:17:54.000] [ClaudeCode] [init] [INFO] Claude Code monitoring adapters activated
+[02:17:55.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:55.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:55.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] simple_toggle called with cmd_args: "--dangerously-skip-permissions"
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] Generated command: claude --dangerously-skip-permissions
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] Environment variables: {
+  CLAUDE_CODE_SSE_PORT = "49800",
+  CLAUDE_SESSION_ID = "1",
+  COLORTERM = "truecolor",
+  ENABLE_IDE_INTEGRATION = "true",
+  FORCE_CODE_TERMINAL = "true",
+  TERM = "xterm-256color"
+}
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:56.000] [ClaudeCode] [snacks] [DEBUG] simple_toggle called with command: claude --dangerously-skip-permissions
+[02:17:56.000] [ClaudeCode] [snacks] [DEBUG] Environment: {
+  CLAUDE_CODE_SSE_PORT = "49800",
+  CLAUDE_SESSION_ID = "1",
+  COLORTERM = "truecolor",
+  ENABLE_IDE_INTEGRATION = "true",
+  FORCE_CODE_TERMINAL = "true",
+  TERM = "xterm-256color"
+}
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] Simple toggle: creating new terminal (scope: 1 )
+[02:17:56.000] [ClaudeCode] [monitoring] [INFO] Terminal instance created: term_3.5705197396533e+14 (provider: snacks)
+[02:17:56.000] [ClaudeCode] [monitoring] [DEBUG] Terminal instance created: term_3.5705197396533e+14 (provider: snacks)
+[02:17:56.000] [ClaudeCode] [snacks] [DEBUG] Creating new terminal with command: claude --dangerously-skip-permissions
+[02:17:56.000] [ClaudeCode] [snacks] [DEBUG] Terminal options: {
+  auto_close = false,
+  auto_insert = false,
+  bo = {
+    modifiable = false,
+    readonly = false,
+    scrollback = 1000,
+    swapfile = false,
+    undofile = false
+  },
+  cwd = "/Users/pittcat/Dev/Python/market_signal_hub",
+  env = {
+    CLAUDE_CODE_SSE_PORT = "49800",
+    CLAUDE_SESSION_ID = "1",
+    COLORTERM = "truecolor",
+    ENABLE_IDE_INTEGRATION = "true",
+    FORCE_CODE_TERMINAL = "true",
+    TERM = "xterm-256color"
+  },
+  start_insert = false,
+  win = {
+    border = "none",
+    height = 0,
+    keys = {
+      claude_new_line = { "<S-CR>", <function 1>,
+        desc = "New line",
+        mode = "t"
+      }
+    },
+    position = "right",
+    relative = "editor",
+    style = "minimal",
+    width = 0.3
+  },
+  wo = {
+    colorcolumn = "",
+    cursorcolumn = false,
+    cursorline = false,
+    foldcolumn = "0",
+    number = false,
+    relativenumber = false,
+    signcolumn = "no",
+    statuscolumn = ""
+  }
+}
+[02:17:56.000] [ClaudeCode] [snacks] [DEBUG] Terminal instance created: true
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:56.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:17:58.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:01.000] [ClaudeCode] [monitoring] [INFO] Terminal instance created: term_3.5705620955317e+14 (provider: snacks)
+[02:18:01.000] [ClaudeCode] [monitoring] [DEBUG] Terminal instance created: term_3.5705620955317e+14 (provider: snacks)
+[02:18:01.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Activating anti-flicker mode
+[02:18:01.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Applied terminal window optimizations
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:01.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:01.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Restoring original settings
+[02:18:02.000] [ClaudeCode] [server] [DEBUG] Authenticated WebSocket client connected: uv_tcp_t: 0x013f628380
+[02:18:02.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:02.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:02.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:02.000] [ClaudeCode] [client] [DEBUG] Processing WebSocket handshake for client: uv_tcp_t: 0x013f628380
+[02:18:02.000] [ClaudeCode] [client] [DEBUG] Authentication required for client: uv_tcp_t: 0x013f628380
+[02:18:02.000] [ClaudeCode] [client] [DEBUG] Client authenticated successfully: uv_tcp_t: 0x013f628380
+[02:18:02.000] [ClaudeCode] [client] [DEBUG] WebSocket connection established for client: uv_tcp_t: 0x013f628380
+[02:18:02.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:02.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:02.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Processing @ mention in tab mode, tab: 1
+[02:18:03.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:03.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:03.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Provider: found
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] get_job_channel method exists, calling it...
+[02:18:03.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] scope_key: 1 terminal: true
+[02:18:03.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Terminal buffer is valid
+[02:18:03.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Checking buffer variables...
+[02:18:03.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Buffer number: 7
+[02:18:03.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Found job_id in buffer var: terminal_job_id 7
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Job channel: 7 type: number
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] About to send via chansend: @/Users/pittcat/Dev/Python/market_signal_hub/src/trade/auto_borrow/main.py 
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Job channel value: 7
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] chansend result - ok: true err: 75
+[02:18:03.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] SUCCESS: Sent @ mention via chansend to tab: 1 file: /Users/pittcat/Dev/Python/market_signal_hub/src/trade/auto_borrow/main.py
+[02:18:03.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:03.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:03.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:05.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:05.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:05.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:05.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:05.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:05.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:06.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Activating anti-flicker mode
+[02:18:06.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Applied terminal window optimizations
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:06.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Restoring original settings
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:06.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:07.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:07.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:07.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:07.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:07.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:07.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:08.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:08.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:08.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:08.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:08.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:08.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:09.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:09.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:09.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] ensure_terminal_visible_no_focus: active_bufnr=7, current_tab=1
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] Terminal is already visible in current tab
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Processing @ mention in tab mode, tab: 1
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:10.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Provider: found
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] get_job_channel method exists, calling it...
+[02:18:10.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] scope_key: 1 terminal: true
+[02:18:10.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Terminal buffer is valid
+[02:18:10.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Checking buffer variables...
+[02:18:10.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Buffer number: 7
+[02:18:10.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Found job_id in buffer var: terminal_job_id 7
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Job channel: 7 type: number
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] About to send via chansend: @src/trade/auto_borrow/main.py 
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Job channel value: 7
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] chansend result - ok: true err: 31
+[02:18:10.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] SUCCESS: Sent @ mention via chansend to tab: 1 file: src/trade/auto_borrow/main.py
+[02:18:12.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:12.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:12.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:13.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Activating anti-flicker mode
+[02:18:13.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Applied terminal window optimizations
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:13.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:13.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Restoring original settings
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:14.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:15.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:15.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:15.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:15.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:15.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:15.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:16.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] simple_toggle called with cmd_args: "--dangerously-skip-permissions"
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] Generated command: claude --dangerously-skip-permissions
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] Environment variables: {
+  CLAUDE_CODE_SSE_PORT = "49800",
+  CLAUDE_SESSION_ID = "2",
+  COLORTERM = "truecolor",
+  ENABLE_IDE_INTEGRATION = "true",
+  FORCE_CODE_TERMINAL = "true",
+  TERM = "xterm-256color"
+}
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:17.000] [ClaudeCode] [snacks] [DEBUG] simple_toggle called with command: claude --dangerously-skip-permissions
+[02:18:17.000] [ClaudeCode] [snacks] [DEBUG] Environment: {
+  CLAUDE_CODE_SSE_PORT = "49800",
+  CLAUDE_SESSION_ID = "2",
+  COLORTERM = "truecolor",
+  ENABLE_IDE_INTEGRATION = "true",
+  FORCE_CODE_TERMINAL = "true",
+  TERM = "xterm-256color"
+}
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] Simple toggle: creating new terminal (scope: 2 )
+[02:18:17.000] [ClaudeCode] [monitoring] [INFO] Terminal instance created: term_3.5707290240921e+14 (provider: snacks)
+[02:18:17.000] [ClaudeCode] [monitoring] [DEBUG] Terminal instance created: term_3.5707290240921e+14 (provider: snacks)
+[02:18:17.000] [ClaudeCode] [snacks] [DEBUG] Creating new terminal with command: claude --dangerously-skip-permissions
+[02:18:17.000] [ClaudeCode] [snacks] [DEBUG] Terminal options: {
+  auto_close = false,
+  auto_insert = false,
+  bo = {
+    modifiable = false,
+    readonly = false,
+    scrollback = 1000,
+    swapfile = false,
+    undofile = false
+  },
+  cwd = "/Users/pittcat/Dev/Python/market_signal_hub",
+  env = {
+    CLAUDE_CODE_SSE_PORT = "49800",
+    CLAUDE_SESSION_ID = "2",
+    COLORTERM = "truecolor",
+    ENABLE_IDE_INTEGRATION = "true",
+    FORCE_CODE_TERMINAL = "true",
+    TERM = "xterm-256color"
+  },
+  start_insert = false,
+  win = {
+    border = "none",
+    height = 0,
+    keys = {
+      claude_new_line = { "<S-CR>", <function 1>,
+        desc = "New line",
+        mode = "t"
+      }
+    },
+    position = "right",
+    relative = "editor",
+    style = "minimal",
+    width = 0.3
+  },
+  wo = {
+    colorcolumn = "",
+    cursorcolumn = false,
+    cursorline = false,
+    foldcolumn = "0",
+    number = false,
+    relativenumber = false,
+    signcolumn = "no",
+    statuscolumn = ""
+  }
+}
+[02:18:17.000] [ClaudeCode] [snacks] [DEBUG] Terminal instance created: true
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:17.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:19.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:19.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:19.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:19.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:19.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:19.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:20.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:21.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:21.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:21.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] ensure_terminal_visible_no_focus: active_bufnr=8, current_tab=2
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] Terminal is already visible in current tab
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:22.000] [ClaudeCode] [monitoring] [INFO] set_state called: disconnected -> idle (operation: intelligent_analysis)
+[02:18:22.000] [ClaudeCode] [monitoring] [INFO] State changed: disconnected -> idle (operation: intelligent_analysis)
+[02:18:22.000] [ClaudeCode] [monitoring] [INFO] State history: disconnected -> idle (0.01ms)
+[02:18:22.000] [ClaudeCode] [monitoring] [INFO] Claude Code state: disconnected -> idle (intelligent_analysis)
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Processing @ mention in tab mode, tab: 2
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:22.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Provider: found
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] get_job_channel method exists, calling it...
+[02:18:22.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] scope_key: 2 terminal: true
+[02:18:22.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Terminal buffer is valid
+[02:18:22.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Checking buffer variables...
+[02:18:22.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Buffer number: 8
+[02:18:22.000] [ClaudeCode] [snacks] [DEBUG] [GET-JOB-CHANNEL] Found job_id in buffer var: terminal_job_id 17
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Job channel: 17 type: number
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] About to send via chansend: @src/trade/auto_borrow/main.py 
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] Job channel value: 17
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] chansend result - ok: true err: 31
+[02:18:22.000] [ClaudeCode] [queue] [DEBUG] [CHANSEND-TAB] SUCCESS: Sent @ mention via chansend to tab: 2 file: src/trade/auto_borrow/main.py
+[02:18:22.000] [ClaudeCode] [server] [DEBUG] Authenticated WebSocket client connected: uv_tcp_t: 0x013f78b710
+[02:18:22.000] [ClaudeCode] [client] [DEBUG] Processing WebSocket handshake for client: uv_tcp_t: 0x013f78b710
+[02:18:22.000] [ClaudeCode] [client] [DEBUG] Authentication required for client: uv_tcp_t: 0x013f78b710
+[02:18:22.000] [ClaudeCode] [client] [DEBUG] Client authenticated successfully: uv_tcp_t: 0x013f78b710
+[02:18:22.000] [ClaudeCode] [client] [DEBUG] WebSocket connection established for client: uv_tcp_t: 0x013f78b710
+[02:18:24.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:24.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:24.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:26.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:26.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:26.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:33.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:33.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:33.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:33.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:33.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:33.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:34.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Activating anti-flicker mode
+[02:18:34.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Applied terminal window optimizations
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:34.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:34.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Restoring original settings
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:35.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:36.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Activating anti-flicker mode
+[02:18:36.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Applied terminal window optimizations
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:36.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:36.000] [ClaudeCode] [anti_flicker] [DEBUG] [ANTI_FLICKER] Restoring original settings
+[02:18:37.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:37.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:37.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:37.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:37.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:37.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:38.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:38.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:38.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available
+[02:18:38.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Requesting provider, configured provider: string snacks
+[02:18:38.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Provider is 'snacks', loading...
+[02:18:38.000] [ClaudeCode] [terminal] [DEBUG] [GET-PROVIDER] Snacks provider loaded and available

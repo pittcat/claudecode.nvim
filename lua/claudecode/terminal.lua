@@ -119,8 +119,6 @@ end
 ---Falls back to native provider if configured provider is unavailable
 ---@return ClaudeCodeTerminalProvider provider The terminal provider module (never nil)
 local function get_provider()
-  local logger = require("claudecode.logger")
-
   -- Handle custom table provider
   if type(defaults.provider) == "table" then
     local custom_provider = defaults.provider --[[@as ClaudeCodeTerminalProvider]]
@@ -129,7 +127,6 @@ local function get_provider()
       -- Check if custom provider is available
       local is_available_ok, is_available = pcall(enhanced_provider.is_available)
       if is_available_ok and is_available then
-        logger.debug("terminal", "Using custom table provider")
         return enhanced_provider
       else
         local availability_msg = is_available_ok and "provider reports not available" or "error checking availability"
@@ -180,11 +177,9 @@ local function get_provider()
     end
   elseif defaults.provider == "native" then
     -- noop, will use native provider as default below
-    logger.debug("terminal", "Using native terminal provider")
   elseif defaults.provider == "none" then
     local none_provider = load_provider("none")
     if none_provider then
-      logger.debug("terminal", "Using no-op terminal provider ('none')")
       return none_provider
     else
       logger.warn("terminal", "'none' provider configured but failed to load. Falling back to 'native'.")

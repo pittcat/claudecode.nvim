@@ -466,6 +466,52 @@ function M._get_terminal_for_test()
   return get_terminal_for_scope(scope_key)
 end
 
+---Get the terminal job channel ID for text injection
+---@return number|nil The job channel ID, or nil if no terminal is active
+function M.get_job_channel()
+  local scope_key = get_current_scope_key()
+  local terminal = get_terminal_for_scope(scope_key)
+
+  if terminal and terminal:buf_valid() then
+    -- For snacks.terminal, the job_id is typically stored in the terminal instance
+    -- Try to get job_id from various possible locations
+    local possible_keys = { "job_id", "jobid", "_job_id", "_jobid", "jobId", "_jobId" }
+    for _, key in ipairs(possible_keys) do
+      if terminal[key] then
+        return terminal[key]
+      end
+    end
+
+    -- As a fallback, try to get it from the terminal buffer's variables
+    if terminal.buf and vim.api.nvim_buf_is_valid(terminal.buf) then
+      -- Try common variable names
+      local buffer_vars = { "terminal_job_id", "job_id", "jobid", "term_job_id" }
+      for _, var_name in ipairs(buffer_vars) do
+        local ok, job_id = pcall(vim.api.nvim_buf_get_var, terminal.buf, var_name)
+        if ok and job_id then
+          return job_id
+        end
+      end
+
+      -- Try to get channel from the terminal buffer
+      local ok, channel = pcall(vim.api.nvim_buf_get_option, terminal.buf, "channel")
+      if ok and channel then
+        return channel
+      end
+    end
+
+    -- Try to get job_id from terminal methods
+    if terminal.get_job_id then
+      local job_id = terminal:get_job_id()
+      if job_id then
+        return job_id
+      end
+    end
+  end
+
+  return nil
+end
+
 ---Clean up terminal for specific scope (called when tab is closed)
 ---@param scope_key string|number
 function M._cleanup_scope(scope_key)

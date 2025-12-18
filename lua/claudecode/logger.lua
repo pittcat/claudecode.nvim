@@ -22,7 +22,7 @@ local level_values = {
 local current_log_level_value = M.levels.WARN -- 默认使用WARN级别，直到用户配置
 
 -- 指定一个明确的日志文件路径
-local log_file_path = "/tmp/claudecode_debug.log"
+local log_file_path = "/Users/pittcat/.vim/plugged/claudecode.nvim/log/debug.log"
 local log_file_handle = nil
 
 -- 初始化日志文件
