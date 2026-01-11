@@ -68,3 +68,9 @@ luacov.stats.out
 !.claude/hooks/
 
 .serena/
+
+# Log files
+/log/*.log
+/log/*.log.backup.*
+!/log/README.md
+!/log/*.sh

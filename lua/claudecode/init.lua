@@ -204,36 +204,48 @@ function M.process_mention_queue(from_new_connection)
     else
       -- Get session ID based on current tab or global
       local terminal_mod = require("claudecode.terminal")
-      local session_id
-      if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
-        session_id = vim.api.nvim_get_current_tabpage()
-      else
-        session_id = "global"
+      local session_scope = terminal_mod.defaults and terminal_mod.defaults.session_scope or "global"
+
+      -- Format the mention text
+      local mention_text = "@" .. mention.file_path
+      if mention.start_line and mention.end_line then
+        if mention.start_line == mention.end_line then
+          mention_text = mention_text .. "#L" .. mention.start_line
+        else
+          mention_text = mention_text .. "#L" .. mention.start_line .. "-L" .. mention.end_line
+        end
       end
 
-      -- Send to specific session instead of broadcasting
-      local params = {
-        filePath = mention.file_path,
-        lineStart = mention.start_line,
-        lineEnd = mention.end_line,
-      }
-
-      local send_success, send_error = M.state.server.send_to_session(session_id, "at_mentioned", params)
-      if not send_success then
-        -- If no client is connected for this session, it's not necessarily an error
-        -- This can happen when tab is closed or terminal not yet started
-        if send_error and send_error:match("No client connected") then
-          if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
-            logger.debug("queue", "No client connected for tab " .. tostring(session_id) .. ", skipping @ mention: " .. mention.file_path)
-          else
-            -- For global mode, fall back to broadcast if session-specific send fails
-            local broadcast_success = M.state.server.broadcast("at_mentioned", params)
-            if not broadcast_success then
-              logger.error("queue", "Failed to send queued @ mention (fallback to broadcast failed): " .. mention.file_path)
+      -- Send via different methods based on session scope
+      if session_scope == "tab" then
+        -- Tab mode: use chansend to directly send to terminal (like codex)
+        local provider = terminal_mod._get_provider and terminal_mod._get_provider()
+        if provider and provider.get_job_channel then
+          local job_channel = provider.get_job_channel()
+          if job_channel then
+            local ok, err = pcall(vim.fn.chansend, job_channel, mention_text .. " ")
+            if ok then
+              logger.debug("queue", "Sent @ mention via chansend to tab:", vim.api.nvim_get_current_tabpage(), "file:", mention.file_path)
+            else
+              logger.error("queue", "Failed to send @ mention via chansend:", err, "file:", mention.file_path)
             end
+          else
+            logger.warn("queue", "No job channel found for tab:", vim.api.nvim_get_current_tabpage())
           end
         else
-          logger.error("queue", "Failed to send queued @ mention to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error") .. " - " .. mention.file_path)
+          logger.warn("queue", "Terminal provider does not support get_job_channel")
+        end
+      else
+        -- Global mode: use WebSocket broadcast
+        local params = {
+          filePath = mention.file_path,
+          lineStart = mention.start_line,
+          lineEnd = mention.end_line,
+        }
+
+        local send_success, send_error = M.state.server.broadcast("at_mentioned", params)
+        if not send_success then
+          logger.error("queue", "Failed to broadcast @ mention:", mention.file_path)
         end
       end
     end
@@ -1587,40 +1599,54 @@ function M._broadcast_at_mention(file_path, start_line, end_line)
     (M.state.config and M.state.config.disable_broadcast_debouncing)
     or (package.loaded["busted"] and not (M.state.config and M.state.config.enable_broadcast_debouncing_in_tests))
   then
-    -- Get session ID based on current tab or global
+    -- Get session scope for routing decision
     local terminal_mod = require("claudecode.terminal")
-    local session_id
-    if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
-      session_id = vim.api.nvim_get_current_tabpage()
-    else
-      session_id = "global"
+    local session_scope = terminal_mod.defaults and terminal_mod.defaults.session_scope or "global"
+
+    -- Format the mention text
+    local mention_text = "@" .. formatted_path
+    if start_line and end_line then
+      if start_line == end_line then
+        mention_text = mention_text .. "#L" .. start_line
+      else
+        mention_text = mention_text .. "#L" .. start_line .. "-L" .. end_line
+      end
     end
 
-    local send_success, send_error = M.state.server.send_to_session(session_id, "at_mentioned", params)
-    if send_success then
-      logger.debug("command", "Sent @ mention to session:", session_id, "file:", formatted_path)
-      return true, nil
-    else
-      -- If no client is connected for this session, it's not necessarily an error
-      -- This can happen when tab is closed or terminal not yet started
-      if send_error and send_error:match("No client connected") then
-        if terminal_mod.defaults and terminal_mod.defaults.session_scope == "tab" then
-          logger.debug("command", "No client connected for tab " .. tostring(session_id) .. ", skipping immediate @ mention: " .. formatted_path)
-          return true, nil -- Don't treat as error, just skip
-        else
-          -- For global mode, fall back to broadcast if session-specific send fails
-          local broadcast_success = M.state.server.broadcast("at_mentioned", params)
-          if broadcast_success then
-            logger.debug("command", "Sent @ mention via broadcast fallback, file:", formatted_path)
+    -- Send via different methods based on session scope
+    if session_scope == "tab" then
+      -- Tab mode: use chansend to directly send to terminal (like codex)
+      local provider = terminal_mod._get_provider and terminal_mod._get_provider()
+      if provider and provider.get_job_channel then
+        local job_channel = provider.get_job_channel()
+        if job_channel then
+          local ok, err = pcall(vim.fn.chansend, job_channel, mention_text .. " ")
+          if ok then
+            logger.debug("command", "Sent @ mention via chansend to tab:", vim.api.nvim_get_current_tabpage(), "file:", formatted_path)
             return true, nil
           else
-            local error_msg = "Failed to send " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. " (broadcast fallback failed)"
+            local error_msg = "Failed to send @ mention via chansend: " .. tostring(err) .. " file: " .. formatted_path
             logger.error("command", error_msg)
             return false, error_msg
           end
+        else
+          local error_msg = "No job channel found for tab: " .. tostring(vim.api.nvim_get_current_tabpage())
+          logger.error("command", error_msg)
+          return false, error_msg
         end
       else
-        local error_msg = "Failed to send " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. " to session " .. tostring(session_id) .. ": " .. (send_error or "unknown error")
+        local error_msg = "Terminal provider does not support get_job_channel"
+        logger.error("command", error_msg)
+        return false, error_msg
+      end
+    else
+      -- Global mode: use WebSocket broadcast
+      local send_success, send_error = M.state.server.broadcast("at_mentioned", params)
+      if send_success then
+        logger.debug("command", "Broadcasted @ mention to all sessions, file:", formatted_path)
+        return true, nil
+      else
+        local error_msg = "Failed to broadcast " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. ": " .. (send_error or "unknown error")
         logger.error("command", error_msg)
         return false, error_msg
       end
