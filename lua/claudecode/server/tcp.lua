@@ -124,15 +124,15 @@ function M._handle_new_connection(server)
   -- Set up data handler
   client_tcp:read_start(function(err, data)
     if err then
-      server.on_error("Client read error: " .. err)
-      M._remove_client(server, client)
+      local error_msg = "Client read error: " .. err
+      server.on_error(error_msg)
+      M._disconnect_client(server, client, 1006, error_msg)
       return
     end
 
     if not data then
       -- EOF - client disconnected
-      server.on_disconnect(client, 1006, "Connection lost")
-      M._remove_client(server, client)
+      M._disconnect_client(server, client, 1006, "EOF")
       return
     end
 
@@ -140,16 +140,50 @@ function M._handle_new_connection(server)
     client_manager.process_data(client, data, function(cl, message)
       server.on_message(cl, message)
     end, function(cl, code, reason)
-      server.on_disconnect(cl, code, reason)
-      M._remove_client(server, cl)
+      M._disconnect_client(server, cl, code, reason)
     end, function(cl, error_msg)
       server.on_error("Client " .. cl.id .. " error: " .. error_msg)
-      M._remove_client(server, cl)
+      M._disconnect_client(server, cl, 1006, "Client error: " .. error_msg)
     end, server.auth_token)
   end)
 
   -- Notify about new connection
   server.on_connect(client)
+end
+
+---Disconnect a client and remove it from the server.
+---This ensures `server.on_disconnect` is invoked for every disconnect path
+---(EOF, read errors, protocol errors, timeouts), and only once per client.
+---@param server TCPServer The server object
+---@param client WebSocketClient The client to disconnect
+---@param code number|nil WebSocket close code
+---@param reason string|nil WebSocket close reason
+function M._disconnect_client(server, client, code, reason)
+  assert(type(server) == "table", "Expected server to be a table")
+  local on_disconnect_type = type(server.on_disconnect)
+  local on_disconnect_mt = on_disconnect_type == "table" and getmetatable(server.on_disconnect) or nil
+  assert(
+    on_disconnect_type == "function" or (on_disconnect_mt ~= nil and type(on_disconnect_mt.__call) == "function"),
+    "Expected server.on_disconnect to be callable"
+  )
+  assert(type(server.clients) == "table", "Expected server.clients to be a table")
+  assert(type(client) == "table", "Expected client to be a table")
+  assert(type(client.id) == "string", "Expected client.id to be a string")
+  if code ~= nil then
+    assert(type(code) == "number", "Expected code to be a number")
+  end
+  if reason ~= nil then
+    assert(type(reason) == "string", "Expected reason to be a string")
+  end
+
+  -- Idempotency: a client can hit multiple disconnect paths (e.g. CLOSE frame
+  -- followed by a TCP EOF). Only notify/remove once.
+  if not server.clients[client.id] then
+    return
+  end
+
+  server.on_disconnect(client, code, reason)
+  M._remove_client(server, client)
 end
 
 ---Remove a client from the server
@@ -248,6 +282,7 @@ end
 ---@return table? timer The timer handle, or nil if creation failed
 function M.start_ping_timer(server, interval)
   interval = interval or 30000 -- 30 seconds
+  local last_run = vim.loop.now()
 
   local timer = vim.loop.new_timer()
   if not timer then
@@ -256,19 +291,49 @@ function M.start_ping_timer(server, interval)
   end
 
   timer:start(interval, interval, function()
-    for _, client in pairs(server.clients) do
-      if client.state == "connected" then
-        -- Check if client is alive
-        if client_manager.is_client_alive(client, interval * 2) then
-          client_manager.send_ping(client, "ping")
-        else
-          -- Client appears dead, close it
-          server.on_error("Client " .. client.id .. " appears dead, closing")
-          client_manager.close_client(client, 1006, "Connection timeout")
-          M._remove_client(server, client)
+    local now = vim.loop.now()
+    local elapsed = now - last_run
+
+    -- Detect potential system sleep: timer interval was significantly exceeded
+    -- Allow 50% grace period (e.g., 45s instead of 30s) to account for system load
+    local is_wake_from_sleep = elapsed > (interval * 1.5)
+
+    if is_wake_from_sleep then
+      -- After system sleep/wake, reset all client pong timestamps to prevent false timeouts
+      -- This gives clients a fresh keepalive window since the time jump isn't their fault
+      require("claudecode.logger").debug(
+        "server",
+        string.format(
+          "Detected potential wake from sleep (%.1fs elapsed), resetting client keepalive timers",
+          elapsed / 1000
+        )
+      )
+      for _, client in pairs(server.clients) do
+        if client.state == "connected" then
+          client.last_pong = now
         end
       end
     end
+
+    for _, client in pairs(server.clients) do
+      if client.state == "connected" then
+        -- Check if client is alive (local connections, so use standard timeout)
+        if client_manager.is_client_alive(client, interval * 2) then
+          client_manager.send_ping(client, "ping")
+        else
+          -- Client connection timed out - log at INFO level (this is expected behavior)
+          local time_since_pong = math.floor((now - client.last_pong) / 1000)
+          require("claudecode.logger").info(
+            "server",
+            string.format("Client %s keepalive timeout (%ds idle), closing connection", client.id, time_since_pong)
+          )
+          client_manager.close_client(client, 1006, "Connection timeout")
+          M._disconnect_client(server, client, 1006, "Connection timeout")
+        end
+      end
+    end
+
+    last_run = now
   end)
 
   return timer

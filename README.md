@@ -45,7 +45,7 @@ When Anthropic released Claude Code, they only supported VS Code and JetBrains. 
       "<leader>as",
       "<cmd>ClaudeCodeTreeAdd<cr>",
       desc = "Add file",
-      ft = { "NvimTree", "neo-tree", "oil", "minifiles" },
+      ft = { "NvimTree", "neo-tree", "oil", "minifiles", "netrw" },
     },
     -- Diff management
     { "<leader>aa", "<cmd>ClaudeCodeDiffAccept<cr>", desc = "Accept diff" },
@@ -439,7 +439,7 @@ For deep technical details, see [ARCHITECTURE.md](./ARCHITECTURE.md).
       auto_close_on_accept = true,
       vertical_split = true,
       open_in_current_tab = true,
-      keep_terminal_focus = false, -- If true, moves focus back to terminal after diff opens
+      keep_terminal_focus = false, -- If true, moves focus back to terminal after diff opens (including floating terminals)
     },
 
   },
@@ -651,6 +651,8 @@ For complete configuration options, see:
 ### None (No-Op) Provider
 
 Run Claude Code without any terminal management inside Neovim. This is useful for advanced setups where you manage the CLI externally (tmux, kitty, separate terminal windows) while still using the WebSocket server and tools.
+
+You have to take care of launching CC and connecting it to the IDE yourself. (e.g. `claude --ide` or launching claude and then selecting the IDE using the `/ide` command)
 
 ```lua
 {

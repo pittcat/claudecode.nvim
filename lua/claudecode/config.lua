@@ -31,7 +31,7 @@ M.defaults = {
   diff_opts = {
     layout = "vertical",
     open_in_new_tab = false, -- Open diff in a new tab (false = use current tab)
-    keep_terminal_focus = false, -- If true, moves focus back to terminal after diff opens
+    keep_terminal_focus = false, -- If true, moves focus back to terminal after diff opens (including floating terminals)
     hide_terminal_in_new_tab = false, -- If true and opening in a new tab, do not show Claude terminal there
     on_new_file_reject = "keep_empty", -- "keep_empty" leaves an empty buffer; "close_window" closes the placeholder split
   },
@@ -51,8 +51,9 @@ M.defaults = {
   },
   models = {
     { name = "Claude Opus 4.1 (Latest)", value = "opus" },
-    { name = "Claude Sonnet 4 (Latest)", value = "sonnet" },
-    { name = "Claude Haiku 3.5 (Latest)", value = "haiku" },
+    { name = "Claude Sonnet 4.5 (Latest)", value = "sonnet" },
+    { name = "Opusplan: Claude Opus 4.1 (Latest) + Sonnet 4.5 (Latest)", value = "opusplan" },
+    { name = "Claude Haiku 4.5 (Latest)", value = "haiku" },
   },
   terminal = nil, -- Will be lazy-loaded to avoid circular dependency
 }
@@ -274,12 +275,12 @@ function M.apply(user_config)
   -- Backward compatibility: map legacy diff options to new fields if provided
   if config.diff_opts then
     local d = config.diff_opts
-    -- Map vertical_split -> layout (only if layout not explicitly set)
-    if d.layout == nil and type(d.vertical_split) == "boolean" then
+    -- Map vertical_split -> layout (legacy option takes precedence)
+    if type(d.vertical_split) == "boolean" then
       d.layout = d.vertical_split and "vertical" or "horizontal"
     end
-    -- Map open_in_current_tab -> open_in_new_tab (invert; only if not explicitly set)
-    if d.open_in_new_tab == nil and type(d.open_in_current_tab) == "boolean" then
+    -- Map open_in_current_tab -> open_in_new_tab (legacy option takes precedence)
+    if type(d.open_in_current_tab) == "boolean" then
       d.open_in_new_tab = not d.open_in_current_tab
     end
   end
