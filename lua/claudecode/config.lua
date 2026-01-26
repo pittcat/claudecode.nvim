@@ -40,6 +40,8 @@ M.defaults = {
     sound = "Glass",
     include_project_path = true,
     title_prefix = "Claude Code",
+    -- Notification mode: "system" (macOS system notification), "vim" (vim.notify), "both" (both)
+    mode = "system",
   },
   monitoring = {
     enabled = false, -- 默认关闭监控系统
@@ -216,6 +218,17 @@ function M.validate(config)
       "notification.include_project_path must be a boolean"
     )
     assert(type(config.notification.title_prefix) == "string", "notification.title_prefix must be a string")
+    if config.notification.mode ~= nil then
+      assert(
+        type(config.notification.mode) == "string"
+          and (
+            config.notification.mode == "system"
+            or config.notification.mode == "vim"
+            or config.notification.mode == "both"
+          ),
+        "notification.mode must be 'system', 'vim', or 'both'"
+      )
+    end
   end
 
   -- Validate monitoring

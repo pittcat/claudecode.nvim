@@ -225,7 +225,13 @@ function M.process_mention_queue(from_new_connection)
           if job_channel then
             local ok, err = pcall(vim.fn.chansend, job_channel, mention_text .. " ")
             if ok then
-              logger.debug("queue", "Sent @ mention via chansend to tab:", vim.api.nvim_get_current_tabpage(), "file:", mention.file_path)
+              logger.debug(
+                "queue",
+                "Sent @ mention via chansend to tab:",
+                vim.api.nvim_get_current_tabpage(),
+                "file:",
+                mention.file_path
+              )
             else
               logger.error("queue", "Failed to send @ mention via chansend:", err, "file:", mention.file_path)
             end
@@ -1624,7 +1630,13 @@ function M._broadcast_at_mention(file_path, start_line, end_line)
         if job_channel then
           local ok, err = pcall(vim.fn.chansend, job_channel, mention_text .. " ")
           if ok then
-            logger.debug("command", "Sent @ mention via chansend to tab:", vim.api.nvim_get_current_tabpage(), "file:", formatted_path)
+            logger.debug(
+              "command",
+              "Sent @ mention via chansend to tab:",
+              vim.api.nvim_get_current_tabpage(),
+              "file:",
+              formatted_path
+            )
             return true, nil
           else
             local error_msg = "Failed to send @ mention via chansend: " .. tostring(err) .. " file: " .. formatted_path
@@ -1648,7 +1660,12 @@ function M._broadcast_at_mention(file_path, start_line, end_line)
         logger.debug("command", "Broadcasted @ mention to all sessions, file:", formatted_path)
         return true, nil
       else
-        local error_msg = "Failed to broadcast " .. (is_directory and "directory" or "file") .. " " .. formatted_path .. ": " .. (send_error or "unknown error")
+        local error_msg = "Failed to broadcast "
+          .. (is_directory and "directory" or "file")
+          .. " "
+          .. formatted_path
+          .. ": "
+          .. (send_error or "unknown error")
         logger.error("command", error_msg)
         return false, error_msg
       end

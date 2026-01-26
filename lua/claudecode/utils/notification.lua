@@ -12,6 +12,7 @@ local default_config = {
   sound = "Glass",
   include_project_path = true,
   title_prefix = "Claude Code",
+  mode = "system", -- 通知模式: "system" (macOS系统通知), "vim" (vim.notify), "both" (两者都)
   backend = "terminal-notifier", -- 目前支持 terminal-notifier
   terminal_notifier = {
     ignore_dnd = true, -- 是否忽略勿扰模式，对应 -ignoreDnD
@@ -43,6 +44,16 @@ end
 
 -- AppleScript 转义函数已移除（不再使用 osascript）
 
+--- 发送 Neovim 内置通知
+--- @param title string 通知标题
+--- @param message string 通知内容
+local function send_vim_notification(title, message)
+  vim.notify(message, vim.log.levels.INFO, {
+    title = title,
+    timeout = 3000,
+  })
+end
+
 --- 发送 macOS 系统通知（使用 terminal-notifier）
 --- @param title string 通知标题
 --- @param message string 通知内容
@@ -52,6 +63,19 @@ local function send_macos_notification(title, message, sound)
   if not config.enabled then
     logger.debug("notification", "Notification disabled, skipping")
     return false
+  end
+
+  -- 获取通知模式
+  local mode = config.mode or "system"
+
+  -- 根据模式发送通知
+  if mode == "vim" or mode == "both" then
+    send_vim_notification(title, message)
+  end
+
+  -- 如果是 vim only 模式，不需要发送系统通知
+  if mode == "vim" then
+    return true
   end
 
   -- 使用配置中的声音或默认声音
