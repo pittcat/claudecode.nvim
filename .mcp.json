@@ -3,10 +3,6 @@
     "serena": {
       "type": "stdio",
       "command": "/usr/local/bin/serena-auto"
-    },
-    "playwright": {
-      "command": "npx",
-      "args": ["@playwright/mcp@latest"]
     }
   }
 }

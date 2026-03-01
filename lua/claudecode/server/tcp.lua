@@ -125,7 +125,11 @@ function M._handle_new_connection(server)
   client_tcp:read_start(function(err, data)
     if err then
       local error_msg = "Client read error: " .. err
-      server.on_error(error_msg)
+      -- ECONNRESET is a common client-side disconnect signal and should not
+      -- surface as a server error notification.
+      if not tostring(err):match("ECONNRESET") then
+        server.on_error(error_msg)
+      end
       M._disconnect_client(server, client, 1006, error_msg)
       return
     end
