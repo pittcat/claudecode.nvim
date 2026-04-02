@@ -446,15 +446,6 @@ function M.setup(opts)
     desc = "Automatically stop Claude Code integration when exiting Neovim",
   })
 
-  -- 初始化 ClaudeIsland RPC 处理器
-  local island_rpc_ok, island_rpc = pcall(require, "claudecode.island_rpc")
-  if island_rpc_ok and island_rpc.setup then
-    island_rpc.setup()
-    logger.info("init", "ClaudeIsland RPC handler initialized")
-  else
-    logger.warn("init", "Failed to initialize ClaudeIsland RPC handler")
-  end
-
   -- 初始化监控系统 (如果启用)
   if M.state.config.monitoring and M.state.config.monitoring.enabled then
     local monitoring_setup_ok, monitoring_module = pcall(require, "claudecode.monitoring.init")

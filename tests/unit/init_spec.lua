@@ -239,6 +239,23 @@ describe("claudecode.init", function()
 
       assert(vim.api.nvim_create_autocmd.calls[1].vals[1] == "VimLeavePre", "Expected VimLeavePre event")
     end)
+
+    it("should not attempt to load Claude Island during setup", function()
+      local island_require_count = 0
+      local original_require = _G.require
+
+      _G.require = function(mod)
+        if mod == "claudecode.island_rpc" then
+          island_require_count = island_require_count + 1
+        end
+        return original_require(mod)
+      end
+
+      local claudecode = require("claudecode")
+      claudecode.setup({ auto_start = false })
+
+      assert.is_equal(0, island_require_count, "setup should not load claudecode.island_rpc")
+    end)
   end)
 
   describe("auto-shutdown", function()
